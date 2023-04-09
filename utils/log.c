@@ -18,7 +18,7 @@
 #define ANSI_MAGENTA "\x1b[36m"
 #define ANSI_RESET "\x1b[0m"
 
-const char* lvl_colors =
+const char* lvl_colors[] =
     {ANSI_MAGENTA, ANSI_GREEN, ANSI_CYAN, ANSI_YELLOW, ANSI_RED, ANSI_BOLDRED};
 
 size_t log_min_level = 0;

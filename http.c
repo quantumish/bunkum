@@ -126,7 +126,7 @@ void* handle_conn(void* ctxt) {
 int main() {
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s == -1) die("socket");
-
+    
     struct sockaddr_in name;
     name.sin_family = AF_INET;
     name.sin_port = htons(8082);
