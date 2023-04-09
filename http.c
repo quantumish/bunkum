@@ -73,7 +73,7 @@ void* handle_conn(void* ctxt) {
             int fd = open(pathbuf+1, O_RDONLY);
             if (fd != -1) {                
                 response_t r = resp_new(OK);
-
+ 
                 struct stat st;
                 fstat(fd, &st);
                 char* fbuf = malloc(st.st_size);

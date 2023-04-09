@@ -35,7 +35,7 @@ void log_msg(enum log_level lvl, char* lvl_name, char* fmt, ...) {
     time_t now = time(0);
     struct tm* local = localtime(&now);
 
-    char* lvl_color = lvl_colors[lvl];
+    const char* lvl_color = lvl_colors[lvl];
     
     printf(ANSI_GREY "%02d/%02d/%02d %02d:%02d:%02d %s%s" ANSI_RESET ": %s\n",
            local->tm_mon, local->tm_mday, local->tm_year,

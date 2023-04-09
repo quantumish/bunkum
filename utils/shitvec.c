@@ -28,7 +28,6 @@ void shitvec_push(shitvec_t* sv, void* item) {
     sv->vec_sz += 1;
 }
 
-
 void shitvec_subpush(shitvec_t* sv, void* item, size_t sz) {
     sv->vec_sz += 1;
     if ((sv->arr+(sv->e_sz * sv->vec_sz)) > sv->arr+sv->alloc_sz) {
@@ -36,7 +35,6 @@ void shitvec_subpush(shitvec_t* sv, void* item, size_t sz) {
     }
     memcpy(sv->arr+(sv->vec_sz * sv->e_sz), item, sz);
 }
-
 
 bool shitvec_check(shitvec_t* sv, void* item, int(cmp)(void*, void*)) {
     for (size_t i = 0; i < sv->vec_sz; i++) {
