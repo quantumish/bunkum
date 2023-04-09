@@ -16,6 +16,7 @@
 
 #include <zlib.h>
 
+#include "utils/time.h"
 #include "utils/shitvec.h"
 #include "http/response.h"
 
@@ -85,7 +86,15 @@ void* handle_conn(void* ctxt) {
                     resp_add_hdr(&r, "Content-Type", "image/svg+xml");
                 } else if (strcmp(ext, "jpeg") == 0) {
                     resp_add_hdr(&r, "Content-Type", "image/jpeg");                    
-                } else escape = true;                             
+                } else {
+                    resp_add_hdr(&r, "Content-Type", "text/html");
+                    escape = true;
+                }
+
+                char datebuf[32];
+                time_to_str(st.st_mtim.tv_sec, datebuf);
+                resp_add_hdr(&r, "Last-Modified", datebuf);
+                
                 if (escape) {
                     char* efbuf = malloc((size_t)(st.st_size * 2)); // FIXME dubious assumption                               
                     scuffed_htmlescape(efbuf, fbuf, st.st_size);
@@ -112,7 +121,7 @@ void* handle_conn(void* ctxt) {
                 resp_add_content(&r, "Fuck off.", 9);                    
                 send(ns, r.content, r.sz, 0);
                 free(r.content);
-            }        
+            }         
             printf("Done.\n");
         }
     }

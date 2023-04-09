@@ -4,12 +4,20 @@
 #include <stdio.h>
 
 #include "../utils/hashmap.h"
+#include "../utils/time.h"
 #include "response.h"
 
 response_t __resp_new(enum StatusCode code, char* code_name) {
     response_t resp;
     memset(resp.header, 0, 512);    
     sprintf(resp.header, "HTTP/1.1 %d %s\r\n", code, code_name);
+
+    resp_add_hdr(&resp, "Server", "Bunkum/0.0.1");
+    
+    char datebuf[32];
+    time_to_str(time(0), datebuf);
+    resp_add_hdr(&resp, "Date", datebuf);
+    
     return resp;
 }
 
