@@ -21,11 +21,6 @@
 #include "utils/shitvec.h"
 #include "http/response.h"
 
-void die(char* p) {
-    perror(p);
-    exit(1);
-}
-
 void scuffed_htmlescape(char* dst, char* src, size_t sz) {
     strcpy(dst, "<pre>\n");
     int offset = 6;
@@ -57,11 +52,13 @@ void* handle_conn(void* ctxt) {
     char pathbuf[MAX_PATH_SZ];
     char msgbuf[512] = {0};
     while(true) {
-        if (recv(ns, msgbuf, 512, 0) == 0) return 0x0;
+        if (recv(ns, msgbuf, 512, 0) == 0) {
+            log_info("Closing connection.");
+            return 0x0;
+        }
         if (strlen(msgbuf) > 0) {
-            printf("%s", msgbuf);           
             sscanf(msgbuf, "GET %s HTTP/1.1", (char*)&pathbuf);
-            printf("%s\n\n", pathbuf);
+            log_info("Got request for %s", pathbuf);
 
             int fd = open(pathbuf+1, O_RDONLY);
             if (fd != -1) {                
@@ -72,7 +69,6 @@ void* handle_conn(void* ctxt) {
                 char* fbuf = malloc(st.st_size);
                 size_t i;
                 for (i = 0; read(fd, fbuf+(i*4096), 4096) > 0; i++);
-                printf("%ld\n", i);
 
                 bool escape = false;
                 bool compression = true;
@@ -97,10 +93,10 @@ void* handle_conn(void* ctxt) {
                 resp_add_hdr(&r, "Last-Modified", datebuf);
                 
                 if (escape) {
-                    char* efbuf = malloc((size_t)(st.st_size * 2)); // FIXME dubious assumption                               
+                    char* efbuf = malloc((size_t)(st.st_size * 2)); // FIXME dubious assumption
                     scuffed_htmlescape(efbuf, fbuf, st.st_size);
                     free(fbuf);
-                    resp_add_content(&r, fbuf, strlen(efbuf));
+                    resp_add_content(&r, efbuf, strlen(efbuf));
                     free(efbuf);
                 } else if (compression) {
                     resp_add_hdr(&r, "Content-Encoding", "deflate");
@@ -114,7 +110,6 @@ void* handle_conn(void* ctxt) {
                     resp_add_content(&r, fbuf, st.st_size);
                 }
                 send(ns, r.content, r.sz, 0);
-                printf("%s\n", r.content);                                
                 free(r.content);
             } else {
                 response_t r = __resp_new(NotFound, "Fuck off.");
@@ -123,19 +118,12 @@ void* handle_conn(void* ctxt) {
                 send(ns, r.content, r.sz, 0);
                 free(r.content);
             }         
-            printf("Done.\n");
+            log_info("Handled request for %s", pathbuf);
         }
     }
 }
 
 int main() {
-    log_trace("am i ever gonna use this");
-    log_debug("%d too many errors", 1);
-    log_info("uhhh hi %s", "world");
-    log_warn("listen here %s", "buckaroo");
-    log_error("that wasn't good");
-    log_fatal("AAAAAA");
-    
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s == -1) die("socket");
 
@@ -151,10 +139,6 @@ int main() {
         }
     }
 
-    shitvec_t paths = shitvec_new(MAX_PATH_SZ);
-    shitvec_subpush(&paths, "hi", 4);
-    shitvec_subpush(&paths, "http.c", 6);    
-    
     int namelen;
     char pathbuf[MAX_PATH_SZ];
     struct sockaddr_in client;
@@ -163,6 +147,7 @@ int main() {
         listen(s, 1);
         int ns = accept(s, (struct sockaddr*)&client, (socklen_t*)&namelen);
 
+        log_info("Handling connection from %s", inet_ntoa(client.sin_addr));
         pthread_t thread;
         pthread_create(&thread, NULL, handle_conn, &ns);
     }
