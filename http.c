@@ -20,6 +20,7 @@
 #include "utils/time.h"
 #include "utils/shitvec.h"
 #include "http/response.h"
+#include "http/request.h"
 
 void scuffed_htmlescape(char* dst, char* src, size_t sz) {
     strcpy(dst, "<pre>\n");
@@ -50,13 +51,22 @@ void scuffed_htmlescape(char* dst, char* src, size_t sz) {
 void* handle_conn(void* ctxt) {
     int ns = *(int*)ctxt;
     char pathbuf[MAX_PATH_SZ];
-    char msgbuf[512] = {0};
+    char msgbuf[1024] = {0};
     while(true) {
-        if (recv(ns, msgbuf, 512, 0) == 0) {
+        if (recv(ns, msgbuf, 1024, 0) == 0) {
             log_info("Closing connection.");
             return 0x0;
         }
         if (strlen(msgbuf) > 0) {
+            request_t req = req_new(msgbuf, 1024);
+            int err = req_parse(&req);
+            if (err < 0) log_error("Failed to parse incoming request.");
+            log_debug("Req: %s, %s, %f", method_name(req.method), req.path, req.ver);
+            for (size_t i = 0; i < req.headers.vec_sz; i++) {
+                header_line_t hdr = *(header_line_t*)shitvec_get(&req.headers, i);
+                log_debug("Header '%s: %s'", hdr.name, hdr.value);
+            }
+
             sscanf(msgbuf, "GET %s HTTP/1.1", (char*)&pathbuf);
             log_info("Got request for %s", pathbuf);
 

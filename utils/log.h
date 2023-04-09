@@ -18,5 +18,7 @@ void log_msg(enum log_level lvl, char* lvl_name, char* fmt, ...);
 #define log_warn(fmt, ...) log_msg(LOG_WARN, "WARN", fmt, ##__VA_ARGS__)
 #define log_error(fmt, ...) log_msg(LOG_ERROR, "ERROR", fmt, ##__VA_ARGS__)
 #define log_fatal(fmt, ...) log_msg(LOG_FATAL, "FATAL", fmt, ##__VA_ARGS__)
+void log_set_min_lvl(enum log_level lvl);
+void die(char* p);
 
 #endif
