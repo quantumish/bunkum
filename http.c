@@ -16,6 +16,7 @@
 
 #include <zlib.h>
 
+#include "utils/log.h"
 #include "utils/time.h"
 #include "utils/shitvec.h"
 #include "http/response.h"
@@ -128,6 +129,13 @@ void* handle_conn(void* ctxt) {
 }
 
 int main() {
+    log_trace("am i ever gonna use this");
+    log_debug("%d too many errors", 1);
+    log_info("uhhh hi %s", "world");
+    log_warn("listen here %s", "buckaroo");
+    log_error("that wasn't good");
+    log_fatal("AAAAAA");
+    
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s == -1) die("socket");
 
