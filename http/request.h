@@ -15,6 +15,7 @@ enum http_method {
 };
 const char* method_name(enum http_method m);
 
+#define MAX_PATH_LEN 64
 #define MAX_HEADER_NAME 32
 #define MAX_HEADER_VALUE 128
 
@@ -27,12 +28,13 @@ typedef struct request {
     char* buf;
     size_t bufsize;
     enum http_method method;
-    char path[64];
+    char path[MAX_PATH_LEN];
     float ver;
     shitvec_t headers;
 } request_t;
 
 request_t req_new(char* reqbuf, size_t bufsize);
 int req_parse(request_t* req);
+void req_free(request_t* req);
 
 #endif

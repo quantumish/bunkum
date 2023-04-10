@@ -1,3 +1,7 @@
+
+// TODO: fix wackiness with time functions 
+// TODO: allow for writing to files 
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
@@ -37,9 +41,9 @@ void log_msg(enum log_level lvl, char* lvl_name, char* fmt, ...) {
 
     const char* lvl_color = lvl_colors[lvl];
     
-    printf(ANSI_GREY "%02d/%02d/%02d %02d:%02d:%02d %s%s" ANSI_RESET ": %s\n",
-           local->tm_mon, local->tm_mday, local->tm_year,
-           local->tm_hour, local->tm_min, local->tm_sec,
+    printf(ANSI_GREY "%02d/%02d/%04d %02d:%02d:%02d %s%s" ANSI_RESET ": %s\n",
+           local->tm_mon+1, local->tm_mday, 1900+local->tm_year,
+           local->tm_hour+1, local->tm_min+1, local->tm_sec,
            lvl_color, lvl_name, msg);
 }
 

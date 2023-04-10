@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
+#include <dirent.h>
 
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -47,10 +48,14 @@ void scuffed_htmlescape(char* dst, char* src, size_t sz) {
     strcpy(dst+i+offset, "\n</pre>");
 }
 
-#define MAX_PATH_SZ 32
+shitvec_t paths;
+
+// TODO actually respect requests
+// TODO handle gzip
+// TODO load balancing?
+
 void* handle_conn(void* ctxt) {
     int ns = *(int*)ctxt;
-    char pathbuf[MAX_PATH_SZ];
     char msgbuf[1024] = {0};
     while(true) {
         if (recv(ns, msgbuf, 1024, 0) == 0) {
@@ -66,60 +71,49 @@ void* handle_conn(void* ctxt) {
                 header_line_t hdr = *(header_line_t*)shitvec_get(&req.headers, i);
                 log_debug("Header '%s: %s'", hdr.name, hdr.value);
             }
+            
+            log_info("Got request for %s", req.path);
 
-            sscanf(msgbuf, "GET %s HTTP/1.1", (char*)&pathbuf);
-            log_info("Got request for %s", pathbuf);
-
-            int fd = open(pathbuf+1, O_RDONLY);
-            if (fd != -1) {                
+            if (shitvec_check(&paths, req.path, (int(*)(void*,void*))strcmp)) {
+                char path[72] = "./public";
+                strcat(path, req.path);
+                int fd = open(path, O_RDONLY); // TODO handle
                 response_t r = resp_new(OK);
  
                 struct stat st;
                 fstat(fd, &st);
-                char* fbuf = malloc(st.st_size);
-                size_t i;
-                for (i = 0; read(fd, fbuf+(i*4096), 4096) > 0; i++);
+                char* fbuf = malloc(st.st_size); // TODO what if file larger than memory?
+                for (size_t i = 0; read(fd, fbuf+(i*4096), 4096) > 0; i++);
 
-                bool escape = false;
-                bool compression = true;
-                char* ext = strchr(pathbuf+1, '.');
-                // TODO clean this up some                
-                if (ext == NULL) {
-                    resp_add_hdr(&r, "Content-Type", "text/html");
-                    escape = true;
-                } else if (strcmp(ext+1, "html") == 0) {
-                    resp_add_hdr(&r, "Content-Type", "text/html");
-                } else if (strcmp(ext+1, "png") == 0) {
-                    compression = false;
-                    resp_add_hdr(&r, "Content-Type", "image/png");
-                } else if (strcmp(ext+1, "svg") == 0) {
-                    resp_add_hdr(&r, "Content-Type", "image/svg+xml");
-                } else if (strcmp(ext+1, "jpeg") == 0) {
-                    resp_add_hdr(&r, "Content-Type", "image/jpeg");                    
-                }
-
+                char* ext = strchr(req.path, '.'); // NOTE breaks if there's a dir with a dot...
+                resp_set_ctype(&r, ext);
+                
                 char datebuf[32];
                 time_to_str(st.st_mtim.tv_sec, datebuf);
                 resp_add_hdr(&r, "Last-Modified", datebuf);
+
+                char* buf = fbuf; // buffer to be written
+                size_t bufsize = st.st_size;
                 
-                if (escape) {
-                    char* efbuf = malloc((size_t)(st.st_size * 2)); // FIXME dubious assumption
-                    scuffed_htmlescape(efbuf, fbuf, st.st_size);
-                    free(fbuf);
-                    resp_add_content(&r, efbuf, strlen(efbuf));
-                    free(efbuf);
-                } else if (compression) {
+                if (ext == NULL) {
+                    bufsize = st.st_size * 2;
+                    buf = malloc(bufsize); // FIXME dubious assumption
+                    scuffed_htmlescape(buf, fbuf, st.st_size);
+                    free(fbuf);            
+                }
+                if (ext == NULL || strcmp(ext, ".png") != 0) {
                     resp_add_hdr(&r, "Content-Encoding", "deflate");
                     size_t clen = compressBound(st.st_size);
                     char* cbuf = malloc(clen);
-                    compress((Bytef*)cbuf, &clen, (Bytef*)fbuf, st.st_size);                    
-                    free(fbuf);
-                    resp_add_content(&r, cbuf, clen);
-                    free(cbuf);
-                } else {
-                    resp_add_content(&r, fbuf, st.st_size);
+                    compress((Bytef*)cbuf, &clen, (Bytef*)buf, bufsize);
+                    free(buf);
+
+                    buf = cbuf;
+                    bufsize = clen;
                 }
+                resp_add_content(&r, buf, bufsize);
                 send(ns, r.content, r.sz, 0);
+                free(buf);
                 free(r.content);
             } else {
                 response_t r = __resp_new(NotFound, "Fuck off.");
@@ -128,9 +122,33 @@ void* handle_conn(void* ctxt) {
                 send(ns, r.content, r.sz, 0);
                 free(r.content);
             }         
-            log_info("Handled request for %s", pathbuf);
+            log_info("Handled request for %s", req.path);
+            req_free(&req);
         }
     }
+}
+
+int list_files_sv(shitvec_t* sv, char* base, bool dropbase) {
+    char path[MAX_PATH_LEN] = "/";
+    struct dirent* dp;
+    DIR* dir = opendir(base);
+    if (!dir) return -1;
+
+    while ((dp = readdir(dir)) != NULL) {
+        if (strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0) {
+            if (!dropbase) {
+                strcpy(path+1, base);
+                strcat(path, "/");
+            }
+            strcat(path, dp->d_name);
+            log_debug("Pushing %s", path);
+            shitvec_push(sv, path);
+            list_files_sv(sv, path, false);
+        }
+    }
+    
+    closedir(dir);    
+    return 0;
 }
 
 int main() {
@@ -147,11 +165,15 @@ int main() {
         if (bind(s, (struct sockaddr*)&name, sizeof(name)) < 0) {
             die("bind");
         }
-    }
-    log_debug("Open on port 8082.");
+    }    
 
+    paths = shitvec_new(MAX_PATH_LEN);
+    list_files_sv(&paths, "public", true);
+    
+    log_debug("Open on port 8082.");    
+    
     int namelen;
-    char pathbuf[MAX_PATH_SZ];
+    char pathbuf[MAX_PATH_LEN];
     struct sockaddr_in client;
     char msgbuf[512] = {0};    
     while (true) {

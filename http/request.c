@@ -52,3 +52,7 @@ int req_parse(request_t* req) {
 
     return 0;
 }
+
+void req_free(request_t* req) {
+    shitvec_free(&req->headers);
+}

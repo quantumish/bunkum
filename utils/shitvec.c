@@ -45,3 +45,7 @@ bool shitvec_check(shitvec_t* sv, void* item, int(cmp)(void*, void*)) {
     }
     return false;    
 }
+
+void shitvec_free(shitvec_t* sv) {
+    free(sv->arr);
+}

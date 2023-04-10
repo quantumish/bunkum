@@ -46,5 +46,6 @@ response_t __resp_new(enum StatusCode code, char* code_name);
 
 void resp_add_hdr(response_t* r, char* hdr, char* val);
 void resp_add_content(response_t* r, char* content, size_t content_len);
+void resp_set_ctype(response_t* r, char* ext);
 
 #endif
