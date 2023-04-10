@@ -15,7 +15,7 @@ enum http_method {
 };
 const char* method_name(enum http_method m);
 
-#define MAX_PATH_LEN 64
+#define MAX_PATH_LEN 128
 #define MAX_HEADER_NAME 32
 #define MAX_HEADER_VALUE 128
 

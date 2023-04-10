@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
 
 #include <pthread.h>
 
@@ -52,16 +53,18 @@ shitvec_t paths;
 
 // TODO actually respect requests
 // TODO handle gzip
-// TODO load balancing?
+// TODO list dirs
 
 void* handle_conn(void* ctxt) {
     int ns = *(int*)ctxt;
     char msgbuf[1024] = {0};
     while(true) {
+        struct timeval before, after, tdiff;
         if (recv(ns, msgbuf, 1024, 0) == 0) {
             log_info("Closing connection.");
             return 0x0;
         }
+        gettimeofday(&before, NULL);
         if (strlen(msgbuf) > 0) {
             request_t req = req_new(msgbuf, 1024);
             int err = req_parse(&req);
@@ -74,8 +77,9 @@ void* handle_conn(void* ctxt) {
             
             log_info("Got request for %s", req.path);
 
+            // TODO split up logic here
             if (shitvec_check(&paths, req.path, (int(*)(void*,void*))strcmp)) {
-                char path[72] = "./public";
+                char path[128+8] = "./public";
                 strcat(path, req.path);
                 int fd = open(path, O_RDONLY); // TODO handle
                 response_t r = resp_new(OK);
@@ -121,14 +125,16 @@ void* handle_conn(void* ctxt) {
                 resp_add_content(&r, "Fuck off.", 9);                    
                 send(ns, r.content, r.sz, 0);
                 free(r.content);
-            }         
-            log_info("Handled request for %s", req.path);
+            }
+            gettimeofday(&after, NULL);
+            timersub(&after, &before, &tdiff);
+            log_info("Handled request for %s in %ld.%06ld sec", req.path, tdiff.tv_sec, tdiff.tv_usec);
             req_free(&req);
         }
     }
 }
 
-int list_files_sv(shitvec_t* sv, char* base, bool dropbase) {
+int list_files_sv(shitvec_t* sv, char* base) {    
     char path[MAX_PATH_LEN] = "/";
     struct dirent* dp;
     DIR* dir = opendir(base);
@@ -136,14 +142,11 @@ int list_files_sv(shitvec_t* sv, char* base, bool dropbase) {
 
     while ((dp = readdir(dir)) != NULL) {
         if (strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0) {
-            if (!dropbase) {
-                strcpy(path+1, base);
-                strcat(path, "/");
-            }
+            strcpy(path+1, base);
+            strcat(path, "/");
             strcat(path, dp->d_name);
-            log_debug("Pushing %s", path);
-            shitvec_push(sv, path);
-            list_files_sv(sv, path, false);
+            shitvec_push(sv, strchr(path+1, '/'));
+            list_files_sv(sv, path+1);
         }
     }
     
@@ -151,6 +154,7 @@ int list_files_sv(shitvec_t* sv, char* base, bool dropbase) {
     return 0;
 }
 
+// TODO some sort of DDOS protection idk
 int main() {
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s == -1) die("socket");
@@ -168,7 +172,8 @@ int main() {
     }    
 
     paths = shitvec_new(MAX_PATH_LEN);
-    list_files_sv(&paths, "public", true);
+    list_files_sv(&paths, "public");
+    // TODO handle special non-file paths
     
     log_debug("Open on port 8082.");    
     
@@ -185,3 +190,8 @@ int main() {
         pthread_create(&thread, NULL, handle_conn, &ns);
     }
 }
+
+// meta todos:
+// - TODO some sort of testing framework?
+// - TODO true dependencyless (no zlib, no pthread)
+// - TODO HTML parsing maybe but that makes me want to cry
