@@ -1,5 +1,5 @@
 serv
-public/
+build/
 
 *.o
 

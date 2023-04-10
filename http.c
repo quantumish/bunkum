@@ -82,20 +82,20 @@ void* handle_conn(void* ctxt) {
 
                 bool escape = false;
                 bool compression = true;
-                char* ext = strchr(pathbuf+1, '.')+1;
-                // TODO clean this up some
-                if (strcmp(ext, "html") == 0) {
-                    resp_add_hdr(&r, "Content-Type", "text/html");
-                } else if (strcmp(ext, "png") == 0) {
-                    compression = false;
-                    resp_add_hdr(&r, "Content-Type", "image/png");
-                } else if (strcmp(ext, "svg") == 0) {
-                    resp_add_hdr(&r, "Content-Type", "image/svg+xml");
-                } else if (strcmp(ext, "jpeg") == 0) {
-                    resp_add_hdr(&r, "Content-Type", "image/jpeg");                    
-                } else {
+                char* ext = strchr(pathbuf+1, '.');
+                // TODO clean this up some                
+                if (ext == NULL) {
                     resp_add_hdr(&r, "Content-Type", "text/html");
                     escape = true;
+                } else if (strcmp(ext+1, "html") == 0) {
+                    resp_add_hdr(&r, "Content-Type", "text/html");
+                } else if (strcmp(ext+1, "png") == 0) {
+                    compression = false;
+                    resp_add_hdr(&r, "Content-Type", "image/png");
+                } else if (strcmp(ext+1, "svg") == 0) {
+                    resp_add_hdr(&r, "Content-Type", "image/svg+xml");
+                } else if (strcmp(ext+1, "jpeg") == 0) {
+                    resp_add_hdr(&r, "Content-Type", "image/jpeg");                    
                 }
 
                 char datebuf[32];
@@ -148,6 +148,7 @@ int main() {
             die("bind");
         }
     }
+    log_debug("Open on port 8082.");
 
     int namelen;
     char pathbuf[MAX_PATH_SZ];

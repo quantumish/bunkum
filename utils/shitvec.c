@@ -23,6 +23,7 @@ void shitvec_push(shitvec_t* sv, void* item) {
     // FIXME sketchy af
     if ((sv->arr+(2 * sv->e_sz * sv->vec_sz)) > sv->arr+sv->alloc_sz) {
         sv->arr = realloc(sv->arr, sv->alloc_sz * 2);
+        sv->alloc_sz *= 2;
     }
     memcpy(sv->arr+(sv->vec_sz * sv->e_sz), item, sv->e_sz);
     sv->vec_sz += 1;
