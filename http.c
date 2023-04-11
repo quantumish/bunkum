@@ -24,31 +24,6 @@
 #include "http/response.h"
 #include "http/request.h"
 
-void scuffed_htmlescape(char* dst, char* src, size_t sz) {
-    strcpy(dst, "<pre>\n");
-    int offset = 6;
-    int i;
-    for (i = 0; i < sz; i++) {
-        switch (src[i]) {
-        case '<':
-            strcpy(dst+i+offset, "&lt;");
-            offset += 3;
-            break;
-        case '>':
-            strcpy(dst+i+offset, "&gt;");
-            offset += 3;
-            break;
-        case '&':
-            strcpy(dst+i+offset, "&amp;");
-            offset += 4;
-            break;
-        default:  
-            dst[i+offset] = src[i];
-        }
-    }
-    strcpy(dst+i+offset, "\n</pre>");
-}
-
 shitvec_t paths;
 
 response_t serve_file(request_t req) {
@@ -71,13 +46,7 @@ response_t serve_file(request_t req) {
 
     char* buf = fbuf; // buffer to be written
     size_t bufsize = st.st_size;
-                
-    if (ext == NULL) {
-        bufsize = st.st_size * 2;
-        buf = malloc(bufsize); // FIXME dubious assumption
-        scuffed_htmlescape(buf, fbuf, st.st_size);
-        free(fbuf);            
-    }
+    
     if (ext == NULL || strcmp(ext, ".png") != 0) {
         resp_add_hdr(&r, "Content-Encoding", "deflate");
         size_t clen = compressBound(st.st_size);
@@ -88,6 +57,7 @@ response_t serve_file(request_t req) {
         buf = cbuf;
         bufsize = clen;
     }
+    
     resp_add_content(&r, buf, bufsize);
     free(buf);
     return r;
@@ -117,8 +87,15 @@ void* handle_conn(void* ctxt) {
             for (size_t i = 0; i < req.headers.vec_sz; i++) {
                 header_line_t hdr = *(header_line_t*)shitvec_get(&req.headers, i);
                 log_debug("Header '%s: %s'", hdr.name, hdr.value);
+                if (strcmp(hdr.name, "Accept") == 0) {
+                    shitvec_t mtypes = hdr_parse_accept(hdr.value);
+                    for (size_t j = 0; j < mtypes.vec_sz; j++) {
+                        struct req_mimetype mtype = *(struct req_mimetype*)shitvec_get(&mtypes, j);
+                        log_info("Allowed type %s with q=%f", mtype.item, mtype.q);
+                    }
+                }
             }
-            
+
             log_info("Got request for %s", req.path);
             
             if (shitvec_check(&paths, req.path, (int(*)(void*,void*))strcmp)) {

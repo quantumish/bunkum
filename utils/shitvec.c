@@ -46,6 +46,10 @@ bool shitvec_check(shitvec_t* sv, void* item, int(cmp)(void*, void*)) {
     return false;    
 }
 
+void shitvec_sort(shitvec_t* sv, int(*cmp)(const void*, const void*)) {
+    qsort(sv->arr, sv->vec_sz, sv->e_sz, cmp);
+}
+
 void shitvec_free(shitvec_t* sv) {
     free(sv->arr);
 }

@@ -18,11 +18,19 @@ const char* method_name(enum http_method m);
 #define MAX_PATH_LEN 128
 #define MAX_HEADER_NAME 32
 #define MAX_HEADER_VALUE 128
+#define MAX_MIMETYPE_LEN 32
+
+struct req_mimetype {
+    float q;
+    char item[MAX_MIMETYPE_LEN];
+};
 
 typedef struct header_line {
     char name[MAX_HEADER_NAME];
     char value[MAX_HEADER_VALUE];
 } header_line_t;
+
+shitvec_t hdr_parse_accept(char* val);
 
 typedef struct request {
     char* buf;

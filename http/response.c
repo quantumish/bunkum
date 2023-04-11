@@ -43,7 +43,7 @@ void resp_add_content(response_t* r, char* content, size_t content_len) {
 
 void resp_set_ctype(response_t* r, char* ext) {
     if (ext == NULL) {
-        resp_add_hdr(r, "Content-Type", "text/html");        
+        resp_add_hdr(r, "Content-Type", "text/plain");        
     } else if (strcmp(ext+1, "html") == 0) {
         resp_add_hdr(r, "Content-Type", "text/html");
     } else if (strcmp(ext+1, "png") == 0) {

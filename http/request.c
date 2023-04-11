@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "../utils/log.h"
 #include "../utils/shitvec.h"
 #include "request.h"
 
@@ -30,25 +31,36 @@ request_t req_new(char* reqbuf, size_t bufsize) {
     return req;
 }
 
-struct qual_item {
-    float q;
-    char item[8];
+int cmp_r_mimetype(const void* a, const void* b) {
+    struct req_mimetype* aa = (struct req_mimetype*)a;
+    struct req_mimetype* bb = (struct req_mimetype*)b;
+    if (aa->q > bb->q) return -1;
+    else if (aa->q == bb->q) return 0;
+    else if (aa->q < bb->q) return 1;
 }
 
-shitvec_t parse_accept(char* value) {
-    shitvec_t items = shitvec_new(16);
-    char* start = strtok(value, ",");
-    while (start != NULL) {
-        struct qual_item i;
-        strtok(NULL, ",");
-
-        /* strncpy(i.item, start,  */
-        strchr(start, ';');
-        
-        sscanf(strchr(start, ';'), "q=%f", &i.q);
-        
-        printf("%s", start);
-    }    
+// TODO handle parse errors
+shitvec_t hdr_parse_accept(char* val) {
+    shitvec_t mimetypes = shitvec_new(sizeof(struct req_mimetype));
+    char* start = strtok(val, ",");
+    char* next;
+    do {
+        next = strtok(NULL, ",");
+        float q = 1;
+        char* qptr = NULL; 
+        if ((qptr = (char*)memchr(start, ';', next-start))) {
+            sscanf(qptr, ";q=%f", &q);
+        }
+        struct req_mimetype mtype;
+        mtype.q = q;
+        memset(mtype.item, 0, MAX_MIMETYPE_LEN);
+        if (qptr != NULL) strncpy(mtype.item, start, qptr-start);
+        else if (next != NULL) strncpy(mtype.item, start, next-start);
+        else strcpy(mtype.item, start);
+        shitvec_push(&mimetypes, &mtype);
+    } while ((start = next));
+    shitvec_sort(&mimetypes, cmp_r_mimetype);
+    return mimetypes;
 }
 
 int req_parse(request_t* req) {
@@ -60,7 +72,7 @@ int req_parse(request_t* req) {
     req->headers = shitvec_new(sizeof(header_line_t));
     char* start = memchr(req->buf, '\n', MAX_HEADER_NAME+MAX_HEADER_VALUE)+1;
     while (start+MAX_HEADER_NAME+MAX_HEADER_VALUE < req->buf+req->bufsize) {
-        header_line_t hdr;
+        header_line_t hdr = header_line_new();
         int matched = sscanf(start, "%32[^:]: %s", hdr.name, hdr.value);
         if (matched == 0) return 0; // No more headers;        
         else if (matched == 1) {
@@ -70,10 +82,10 @@ int req_parse(request_t* req) {
         shitvec_push(&req->headers, &hdr);
         start = memchr(start, '\n', MAX_HEADER_NAME+MAX_HEADER_VALUE)+1;
     }
-
     return 0;
 }
 
 void req_free(request_t* req) {
     shitvec_free(&req->headers);
 }
+
