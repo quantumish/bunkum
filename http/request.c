@@ -30,6 +30,27 @@ request_t req_new(char* reqbuf, size_t bufsize) {
     return req;
 }
 
+struct qual_item {
+    float q;
+    char item[8];
+}
+
+shitvec_t parse_accept(char* value) {
+    shitvec_t items = shitvec_new(16);
+    char* start = strtok(value, ",");
+    while (start != NULL) {
+        struct qual_item i;
+        strtok(NULL, ",");
+
+        /* strncpy(i.item, start,  */
+        strchr(start, ';');
+        
+        sscanf(strchr(start, ';'), "q=%f", &i.q);
+        
+        printf("%s", start);
+    }    
+}
+
 int req_parse(request_t* req) {
     char method[8] = {0};
     int matched = sscanf(req->buf, "%s %s HTTP/%f\r\n", (char*)method, (char*)req->path, &req->ver);

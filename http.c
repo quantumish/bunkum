@@ -51,6 +51,48 @@ void scuffed_htmlescape(char* dst, char* src, size_t sz) {
 
 shitvec_t paths;
 
+response_t serve_file(request_t req) {
+    char path[128+8] = "./public";
+    strcat(path, req.path);
+    int fd = open(path, O_RDONLY); // TODO handle
+    response_t r = resp_new(OK);
+ 
+    struct stat st;
+    fstat(fd, &st);
+    char* fbuf = malloc(st.st_size); // TODO what if file larger than memory?
+    for (size_t i = 0; read(fd, fbuf+(i*4096), 4096) > 0; i++);
+
+    char* ext = strchr(req.path, '.'); // NOTE breaks if there's a dir with a dot...
+    resp_set_ctype(&r, ext);
+                
+    char datebuf[32];
+    time_to_str(st.st_mtim.tv_sec, datebuf);
+    resp_add_hdr(&r, "Last-Modified", datebuf);
+
+    char* buf = fbuf; // buffer to be written
+    size_t bufsize = st.st_size;
+                
+    if (ext == NULL) {
+        bufsize = st.st_size * 2;
+        buf = malloc(bufsize); // FIXME dubious assumption
+        scuffed_htmlescape(buf, fbuf, st.st_size);
+        free(fbuf);            
+    }
+    if (ext == NULL || strcmp(ext, ".png") != 0) {
+        resp_add_hdr(&r, "Content-Encoding", "deflate");
+        size_t clen = compressBound(st.st_size);
+        char* cbuf = malloc(clen);
+        compress((Bytef*)cbuf, &clen, (Bytef*)buf, bufsize);
+        free(buf);
+
+        buf = cbuf;
+        bufsize = clen;
+    }
+    resp_add_content(&r, buf, bufsize);
+    free(buf);
+    return r;
+}
+
 // TODO actually respect requests
 // TODO handle gzip
 // TODO list dirs
@@ -65,59 +107,23 @@ void* handle_conn(void* ctxt) {
             return 0x0;
         }
         gettimeofday(&before, NULL);
-        if (strlen(msgbuf) > 0) {
+        if (msgbuf[0] != 0) {
             request_t req = req_new(msgbuf, 1024);
             int err = req_parse(&req);
             if (err < 0) log_error("Failed to parse incoming request.");
+
             log_debug("Req: %s, %s, %f", method_name(req.method), req.path, req.ver);
+            
             for (size_t i = 0; i < req.headers.vec_sz; i++) {
                 header_line_t hdr = *(header_line_t*)shitvec_get(&req.headers, i);
                 log_debug("Header '%s: %s'", hdr.name, hdr.value);
             }
             
             log_info("Got request for %s", req.path);
-
-            // TODO split up logic here
+            
             if (shitvec_check(&paths, req.path, (int(*)(void*,void*))strcmp)) {
-                char path[128+8] = "./public";
-                strcat(path, req.path);
-                int fd = open(path, O_RDONLY); // TODO handle
-                response_t r = resp_new(OK);
- 
-                struct stat st;
-                fstat(fd, &st);
-                char* fbuf = malloc(st.st_size); // TODO what if file larger than memory?
-                for (size_t i = 0; read(fd, fbuf+(i*4096), 4096) > 0; i++);
-
-                char* ext = strchr(req.path, '.'); // NOTE breaks if there's a dir with a dot...
-                resp_set_ctype(&r, ext);
-                
-                char datebuf[32];
-                time_to_str(st.st_mtim.tv_sec, datebuf);
-                resp_add_hdr(&r, "Last-Modified", datebuf);
-
-                char* buf = fbuf; // buffer to be written
-                size_t bufsize = st.st_size;
-                
-                if (ext == NULL) {
-                    bufsize = st.st_size * 2;
-                    buf = malloc(bufsize); // FIXME dubious assumption
-                    scuffed_htmlescape(buf, fbuf, st.st_size);
-                    free(fbuf);            
-                }
-                if (ext == NULL || strcmp(ext, ".png") != 0) {
-                    resp_add_hdr(&r, "Content-Encoding", "deflate");
-                    size_t clen = compressBound(st.st_size);
-                    char* cbuf = malloc(clen);
-                    compress((Bytef*)cbuf, &clen, (Bytef*)buf, bufsize);
-                    free(buf);
-
-                    buf = cbuf;
-                    bufsize = clen;
-                }
-                resp_add_content(&r, buf, bufsize);
+                response_t r = serve_file(req);
                 send(ns, r.content, r.sz, 0);
-                free(buf);
                 free(r.content);
             } else {
                 response_t r = __resp_new(NotFound, "Fuck off.");
@@ -126,6 +132,7 @@ void* handle_conn(void* ctxt) {
                 send(ns, r.content, r.sz, 0);
                 free(r.content);
             }
+            
             gettimeofday(&after, NULL);
             timersub(&after, &before, &tdiff);
             log_info("Handled request for %s in %ld.%06ld sec", req.path, tdiff.tv_sec, tdiff.tv_usec);
