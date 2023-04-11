@@ -38,7 +38,7 @@ response_t serve_file(request_t req) {
     for (size_t i = 0; read(fd, fbuf+(i*4096), 4096) > 0; i++);
 
     char* ext = strchr(req.path, '.'); // NOTE breaks if there's a dir with a dot...
-    resp_set_ctype(&r, ext);
+    resp_set_ctype(&r, ext);    
                 
     char datebuf[32];
     time_to_str(st.st_mtim.tv_sec, datebuf);
@@ -63,6 +63,15 @@ response_t serve_file(request_t req) {
     return r;
 }
 
+response_t serve_error(enum StatusCode c) {
+    response_t r = resp_new(c);
+    resp_add_hdr(&r, "Content-Type", "text/html");
+    char msg[32] = {0};
+    sprintf(msg, "<h1>Error %d</h1>", c);
+    resp_add_content(&r, msg, strlen(msg));
+    return r;
+}
+
 // TODO actually respect requests
 // TODO handle gzip
 // TODO list dirs
@@ -78,9 +87,17 @@ void* handle_conn(void* ctxt) {
         }
         gettimeofday(&before, NULL);
         if (msgbuf[0] != 0) {
+            response_t r;
             request_t req = req_new(msgbuf, 1024);
+            
             int err = req_parse(&req);
-            if (err < 0) log_error("Failed to parse incoming request.");
+            if (err < 0) {
+                log_error("Failed to parse incoming request.");
+                r = serve_error(BadRequest);
+                send(ns, r.content, r.sz, 0);
+                free(r.content);
+                continue;
+            }
 
             log_debug("Req: %s, %s, %f", method_name(req.method), req.path, req.ver);
             
@@ -97,18 +114,15 @@ void* handle_conn(void* ctxt) {
             }
 
             log_info("Got request for %s", req.path);
-            
+
             if (shitvec_check(&paths, req.path, (int(*)(void*,void*))strcmp)) {
-                response_t r = serve_file(req);
+                r = serve_file(req);
                 send(ns, r.content, r.sz, 0);
-                free(r.content);
             } else {
-                response_t r = __resp_new(NotFound, "Fuck off.");
-                resp_add_hdr(&r, "Content-Type", "text/html");
-                resp_add_content(&r, "Fuck off.", 9);                    
+                r = serve_error(NotFound);
                 send(ns, r.content, r.sz, 0);
-                free(r.content);
             }
+            free(r.content);
             
             gettimeofday(&after, NULL);
             timersub(&after, &before, &tdiff);

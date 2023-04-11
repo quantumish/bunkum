@@ -25,6 +25,7 @@ enum StatusCode {
     NotModified = 304,
     UseProxy = 305,
     TemporaryRedirect = 307,
+    BadRequest = 400,
     Unauthorized = 401,
     PaymentRequired = 402,
     Forbidden = 403,
