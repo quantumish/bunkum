@@ -40,7 +40,7 @@ response_t serve_file(request_t req) {
     char* ext = strchr(req.path, '.'); // NOTE breaks if there's a dir with a dot...
     resp_set_ctype(&r, ext);    
                 
-    char datebuf[32];
+    char datebuf[64];
     time_to_str(st.st_mtim.tv_sec, datebuf);
     resp_add_hdr(&r, "Last-Modified", datebuf);
 
@@ -72,9 +72,30 @@ response_t serve_error(enum StatusCode c) {
     return r;
 }
 
+
 // TODO actually respect requests
 // TODO handle gzip
 // TODO list dirs
+
+response_t make_response (request_t req) {
+    if (req_parse(&req) < 0) {
+        log_error("Failed to parse incoming request.");
+        return serve_error(BadRequest);                
+    }
+            
+    log_info("Got request %s %s", method_name(req.method), req.path);
+
+    if (!shitvec_check(&paths, req.path, (sv_cmp_t)strcmp)) {
+        return serve_error(NotFound);
+    }
+    
+    switch (req.method) {
+    case GET: return serve_file(req); break;
+    default: return serve_error(MethodNotAllowed);
+    }
+    
+    return serve_error(InternalServerError); // should be unreachable?
+}
 
 void* handle_conn(void* ctxt) {
     int ns = *(int*)ctxt;
@@ -87,46 +108,15 @@ void* handle_conn(void* ctxt) {
         }
         gettimeofday(&before, NULL);
         if (msgbuf[0] != 0) {
-            response_t r;
             request_t req = req_new(msgbuf, 1024);
             
-            int err = req_parse(&req);
-            if (err < 0) {
-                log_error("Failed to parse incoming request.");
-                r = serve_error(BadRequest);
-                send(ns, r.content, r.sz, 0);
-                free(r.content);
-                continue;
-            }
-
-            log_debug("Req: %s, %s, %f", method_name(req.method), req.path, req.ver);
-            
-            for (size_t i = 0; i < req.headers.vec_sz; i++) {
-                header_line_t hdr = *(header_line_t*)shitvec_get(&req.headers, i);
-                log_debug("Header '%s: %s'", hdr.name, hdr.value);
-                if (strcmp(hdr.name, "Accept") == 0) {
-                    shitvec_t mtypes = hdr_parse_accept(hdr.value);
-                    for (size_t j = 0; j < mtypes.vec_sz; j++) {
-                        struct req_mimetype mtype = *(struct req_mimetype*)shitvec_get(&mtypes, j);
-                        log_info("Allowed type %s with q=%f", mtype.item, mtype.q);
-                    }
-                }
-            }
-
-            log_info("Got request for %s", req.path);
-
-            if (shitvec_check(&paths, req.path, (int(*)(void*,void*))strcmp)) {
-                r = serve_file(req);
-                send(ns, r.content, r.sz, 0);
-            } else {
-                r = serve_error(NotFound);
-                send(ns, r.content, r.sz, 0);
-            }
+            response_t r = make_response(req);            
+            send(ns, r.content, r.sz, 0);
             free(r.content);
             
             gettimeofday(&after, NULL);
             timersub(&after, &before, &tdiff);
-            log_info("Handled request for %s in %ld.%06ld sec", req.path, tdiff.tv_sec, tdiff.tv_usec);
+            log_info("Handled request in %ld.%06ld sec", req.path, tdiff.tv_sec, tdiff.tv_usec);
             req_free(&req);
         }
     }
@@ -190,6 +180,8 @@ int main() {
 }
 
 // meta todos:
-// - TODO some sort of testing framework?
 // - TODO true dependencyless (no zlib, no pthread)
 // - TODO HTML parsing maybe but that makes me want to cry
+// - TODO nice ways of dynamically *generating* html
+// - TODO dynamically profile requests
+// - TODO some kinda config file parsing

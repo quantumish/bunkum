@@ -1,9 +1,14 @@
+# bunkum-related
 serv
+test
 build/
 public/
 
+# c-related
 *.o
+*.so
 
+# emacs-related
 *~
 \#*\#
 .\#*
