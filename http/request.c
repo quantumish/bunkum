@@ -110,4 +110,12 @@ void test_method_str_to_enum() {
     assert_method_eq(method_enum("OPTIONS"), OPTIONS);
     assert_method_eq(method_enum("TRACE"), TRACE);
 };
+
+void test_hdr_parse_accept() {
+    char* hdr = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
+    shitvec_t mtypes = hdr_parse_accept(hdr);
+    assert_size_eq(mtypes.vec_sz, 5);
+    // TODO write the rest of this.
+}
+
 #endif

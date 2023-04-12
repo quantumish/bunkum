@@ -59,15 +59,21 @@ void get_symbols(char* path) {
 	fclose(fptr);
 }
 
-
+#define ANSI_RED "\x1b[31m"
+#define ANSI_GREEN "\x1b[32m"
+#define ANSI_BOLD "\x1b[1m"
+#define ANSI_RESET "\x1b[0m"
 
 int main(int argc, char** argv) {
     get_symbols(argv[1]);
     char path[64] = {0};
     sprintf(path, "./%s", argv[1]);
     void* lib = dlopen(path, RTLD_LAZY);
+    printf(ANSI_BOLD "Running tests...\n" ANSI_RESET);
+    size_t passed = 0;
+    size_t total = (symbols_off-symbols)/MAX_SYMBOL_LEN;
     for (char* sym = symbols; sym < symbols_off; sym+=MAX_SYMBOL_LEN) {
-        printf("%s ", sym+5);
+        printf("  %s ", sym+5);
         fflush(STDIN_FILENO);
         bool(*testf)(void) = dlsym(lib, sym);        
         pid_t pid = fork();
@@ -77,8 +83,17 @@ int main(int argc, char** argv) {
         } else {
             int status;
             waitpid(pid, &status, 0);
-            printf(" [%s]\n", status == 0 ? "GOOD" : "BAD");
+            if (status == 0) {
+                passed += 1;
+                puts(" " ANSI_GREEN "[GOOD]" ANSI_RESET);
+            } else {
+                printf(" " ANSI_RED "[BAD]" ANSI_RESET);
+                if (status != 1) printf(ANSI_RED " (%d)" ANSI_RESET, status);
+                printf("\n");
+            }
         }
     }
+    printf("\n" ANSI_GREEN "%ld tests" ANSI_RESET " passed, " ANSI_RED "%ld tests" ANSI_RESET " failed.\n" ANSI_RESET,
+           passed, total-passed);
     dlclose(lib);
 }
