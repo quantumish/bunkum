@@ -37,7 +37,7 @@ void shitvec_subpush(shitvec_t* sv, void* item, size_t sz) {
     memcpy(sv->arr+(sv->vec_sz * sv->e_sz), item, sz);
 }
 
-bool shitvec_check(shitvec_t* sv, void* item, int(cmp)(void*, void*)) {
+bool shitvec_check(shitvec_t* sv, void* item, sv_cmp_t cmp) {
     for (size_t i = 0; i < sv->vec_sz; i++) {
         if (cmp(sv->arr+(i*sv->e_sz), item) == 0) {
             return true;
@@ -54,4 +54,17 @@ void shitvec_free(shitvec_t* sv) {
     free(sv->arr);
 }
 
-int test_shitvec() { return 1; };
+#ifdef TEST
+#include "../test.h"
+
+void test_shitvec_sanity() {
+    shitvec_t sv = shitvec_new(8);
+    shitvec_push(&sv, "whee");
+    shitvec_push(&sv, "whoo");
+    assert_str_eq("whee", shitvec_get(&sv, 0));
+    assert_str_eq("whoo", shitvec_get(&sv, 1));
+    assert_size_eq(2, sv.vec_sz);
+    assert_size_eq(8, sv.e_sz);
+    assert_bool(shitvec_check(&sv, "whoo", (sv_cmp_t)strcmp));
+};
+#endif

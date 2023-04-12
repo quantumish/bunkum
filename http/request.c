@@ -89,3 +89,25 @@ void req_free(request_t* req) {
     shitvec_free(&req->headers);
 }
 
+#ifdef TEST
+#include <stdlib.h>
+#include "../test.h"
+
+static void assert_method_eq(enum http_method a, enum http_method b) {
+    if (a != b) {
+        printf("(%s != %s)", method_name(a), method_name(b));
+        exit(1);
+    }
+}
+
+void test_method_str_to_enum() {
+    assert_method_eq(method_enum("GET"), GET);
+    assert_method_eq(method_enum("HEAD"), HEAD);
+    assert_method_eq(method_enum("POST"), POST);
+    assert_method_eq(method_enum("PUT"), PUT);
+    assert_method_eq(method_enum("DELETE"), DELETE);
+    assert_method_eq(method_enum("CONNECT"), CONNECT);
+    assert_method_eq(method_enum("OPTIONS"), OPTIONS);
+    assert_method_eq(method_enum("TRACE"), TRACE);
+};
+#endif

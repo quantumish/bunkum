@@ -66,16 +66,14 @@ int main(int argc, char** argv) {
     char path[64] = {0};
     sprintf(path, "./%s", argv[1]);
     void* lib = dlopen(path, RTLD_LAZY);
-    if (!lib) {
-        printf("uh oh: %s\n", dlerror());
-    }
     for (char* sym = symbols; sym < symbols_off; sym+=MAX_SYMBOL_LEN) {
-        printf("%s", sym);
+        printf("%s ", sym+5);
         fflush(STDIN_FILENO);
         bool(*testf)(void) = dlsym(lib, sym);        
         pid_t pid = fork();
         if (pid == 0) {
-            exit(!testf());
+            testf();
+            exit(0);
         } else {
             int status;
             waitpid(pid, &status, 0);
