@@ -59,12 +59,26 @@ void get_symbols(char* path) {
 	fclose(fptr);
 }
 
+int run_test_safe(bool(*testf)(void)) {
+    pid_t pid = fork();
+    if (pid == 0) {
+        testf();
+        exit(0);
+    } else {
+        int status;
+        waitpid(pid, &status, 0);
+        return status;
+    }        
+}
+
 #define ANSI_RED "\x1b[31m"
 #define ANSI_GREEN "\x1b[32m"
 #define ANSI_BOLD "\x1b[1m"
 #define ANSI_RESET "\x1b[0m"
 
 int main(int argc, char** argv) {
+    bool imode = false;
+    if (argc > 2 && strcmp(argv[2], "-i") == 0) imode = true;        
     get_symbols(argv[1]);
     char path[64] = {0};
     sprintf(path, "./%s", argv[1]);
@@ -76,22 +90,17 @@ int main(int argc, char** argv) {
         printf("  %s ", sym+5);
         fflush(STDIN_FILENO);
         bool(*testf)(void) = dlsym(lib, sym);        
-        pid_t pid = fork();
-        if (pid == 0) {
-            testf();
-            exit(0);
+        int status = run_test_safe(testf);
+        
+        if (status == 0) {
+            passed += 1;
+            puts(" " ANSI_GREEN "[GOOD]" ANSI_RESET);
         } else {
-            int status;
-            waitpid(pid, &status, 0);
-            if (status == 0) {
-                passed += 1;
-                puts(" " ANSI_GREEN "[GOOD]" ANSI_RESET);
-            } else {
-                printf(" " ANSI_RED "[BAD]" ANSI_RESET);
-                if (status != 1) printf(ANSI_RED " (%d)" ANSI_RESET, status);
-                printf("\n");
-            }
+            printf(" " ANSI_RED "[BAD]" ANSI_RESET);
+            if (status != 1) printf(ANSI_RED " (%d)" ANSI_RESET, status);
+            printf("\n");
         }
+        if (status != 0 && status != 1 && imode) testf();
     }
     printf("\n" ANSI_GREEN "%ld tests" ANSI_RESET " passed, " ANSI_RED "%ld tests" ANSI_RESET " failed.\n" ANSI_RESET,
            passed, total-passed);

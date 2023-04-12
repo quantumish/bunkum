@@ -18,6 +18,13 @@ void assert_size_eq(size_t a, size_t b) {
     }
 }
 
+void assert_float_eq(float a, float b) {
+    if (a != b) {
+        printf("(%f != %f)", a, b);
+        exit(1);
+    }
+}
+
 void assert_bool(bool expr) {
     if (!expr) {
         exit(1);

@@ -13,7 +13,7 @@ const char* method_name(enum http_method m) {
 }
 
 const enum http_method method_codes[] = {DELETE, CONNECT, PUT, POST, TRACE, HEAD, OPTIONS, GET};
-enum http_method method_enum(char* p) {    
+enum http_method method_enum(char* p) {
     return method_codes[((*(uint64_t*)p*0x1b8b6e6d) % 0x100000000) >> 28];
 }
 
@@ -47,7 +47,7 @@ shitvec_t hdr_parse_accept(char* val) {
     do {
         next = strtok(NULL, ",");
         float q = 1;
-        char* qptr = NULL; 
+        char* qptr = NULL;
         if ((qptr = (char*)memchr(start, ';', next-start))) {
             sscanf(qptr, ";q=%f", &q);
         }
@@ -68,13 +68,13 @@ int req_parse(request_t* req) {
     int matched = sscanf(req->buf, "%s %s HTTP/%f\r\n", (char*)method, (char*)req->path, &req->ver);
     if (matched < 3 || matched == EOF) return -1;
     req->method = method_enum((char*)method);
-    
+
     req->headers = shitvec_new(sizeof(header_line_t));
     char* start = memchr(req->buf, '\n', MAX_HEADER_NAME+MAX_HEADER_VALUE)+1;
     while (start+MAX_HEADER_NAME+MAX_HEADER_VALUE < req->buf+req->bufsize) {
         header_line_t hdr = header_line_new();
         int matched = sscanf(start, "%32[^:]: %s", hdr.name, hdr.value);
-        if (matched == 0) return 0; // No more headers;        
+        if (matched == 0) return 0; // No more headers;
         else if (matched == 1) {
             if (hdr.name[0] == '\r') return 0; // TODO sketch
             return -1; // Uhh... half a header.
@@ -112,10 +112,25 @@ void test_method_str_to_enum() {
 };
 
 void test_hdr_parse_accept() {
-    char* hdr = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
+    char hdr[MAX_HEADER_VALUE] = "text/html,application/xml;q=0.9,image/webp,*/*;q=0.8";
     shitvec_t mtypes = hdr_parse_accept(hdr);
-    assert_size_eq(mtypes.vec_sz, 5);
-    // TODO write the rest of this.
+    assert_size_eq(mtypes.vec_sz, 4);
+
+    struct req_mimetype* mtype = shitvec_get(&mtypes, 0);
+    assert_str_eq("text/html", mtype->item);
+    assert_float_eq(1.0, mtype->q);
+
+    mtype = shitvec_get(&mtypes, 1);
+    assert_str_eq("image/webp", mtype->item);
+    assert_float_eq(1.0, mtype->q);
+
+    mtype = shitvec_get(&mtypes, 2);
+    assert_str_eq("application/xml", mtype->item);
+    assert_float_eq(0.9, mtype->q);
+
+    mtype = shitvec_get(&mtypes, 3);
+    assert_str_eq("*/*", mtype->item);
+    assert_float_eq(0.8, mtype->q);
 }
 
 #endif
