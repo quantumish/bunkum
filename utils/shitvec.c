@@ -53,3 +53,5 @@ void shitvec_sort(shitvec_t* sv, int(*cmp)(const void*, const void*)) {
 void shitvec_free(shitvec_t* sv) {
     free(sv->arr);
 }
+
+int test_shitvec() { return 1; };
