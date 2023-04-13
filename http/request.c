@@ -62,6 +62,7 @@ int req_parse(request_t* req) {
     req->method = method_enum((char*)method);
 
     req->headers = hashmap_new(MAX_HEADER_NAME, MAX_HEADER_VALUE);
+	req->headers.vark = true;
     char* start = memchr(req->buf, '\n', MAX_HEADER_NAME+MAX_HEADER_VALUE)+1;
     while (start+MAX_HEADER_NAME+MAX_HEADER_VALUE < req->buf+req->bufsize) {
 		char name[MAX_HEADER_NAME] = {0};

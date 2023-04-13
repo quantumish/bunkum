@@ -54,9 +54,7 @@ response_t serve_file(request_t req) {
 	bool ok = true;
     char* mtype = (char*)ext_to_mtype(ext);
 	char* hdr;
-	char check[MAX_HEADER_NAME] = {0};
-	strcpy(check, "Accept");
-	if ((hdr = hashmap_get(&req.headers, check))) {
+	if ((hdr = hashmap_get(&req.headers, "Accept"))) {
 		log_debug("Handling Accept header");
 		ok = false;
 		shitvec_t mtypes = hdr_parse_accept(hdr);

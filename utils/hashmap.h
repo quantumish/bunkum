@@ -2,6 +2,7 @@
 #define HASHMAP_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 typedef struct hashmap_t {
     void* keys;
@@ -10,6 +11,7 @@ typedef struct hashmap_t {
     size_t v_sz;
     size_t len;
     size_t filled;
+	bool vark;
 } hashmap_t;
 
 // Generates a new hashmap_t.
