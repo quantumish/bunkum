@@ -57,15 +57,5 @@ const char* ext_to_mtype(char* ext) {
 }
 
 void resp_set_ctype(response_t* r, char* ext) {
-    if (ext == NULL) {
-        resp_add_hdr(r, "Content-Type", "text/plain");        
-    } else if (strcmp(ext+1, "html") == 0) {
-        resp_add_hdr(r, "Content-Type", "text/html");
-    } else if (strcmp(ext+1, "png") == 0) {
-        resp_add_hdr(r, "Content-Type", "image/png");
-    } else if (strcmp(ext+1, "svg") == 0) {
-        resp_add_hdr(r, "Content-Type", "image/svg+xml");
-    } else if (strcmp(ext+1, "jpeg") == 0) {
-        resp_add_hdr(r, "Content-Type", "image/jpeg");                    
-    }
+    resp_add_hdr(r, "Content-Type", (char*)ext_to_mtype(ext));
 }

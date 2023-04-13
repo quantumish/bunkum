@@ -42,6 +42,8 @@ typedef struct response {
     size_t sz;
 } response_t;
 
+const char* ext_to_mtype(char* ext);
+
 response_t __resp_new(enum StatusCode code, char* code_name);
 #define resp_new(code) __resp_new(code, STRINGIZE(code))
 

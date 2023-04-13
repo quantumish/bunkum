@@ -24,6 +24,16 @@
 #include "http/response.h"
 #include "http/request.h"
 
+
+response_t serve_error(enum StatusCode c) {
+    response_t r = resp_new(c);
+    resp_add_hdr(&r, "Content-Type", "text/html");
+    char msg[32] = {0};
+    sprintf(msg, "<h1>Error %d</h1>", c);
+    resp_add_content(&r, msg, strlen(msg));
+    return r;
+}
+
 shitvec_t paths;
 
 response_t serve_file(request_t req) {
@@ -38,8 +48,20 @@ response_t serve_file(request_t req) {
     for (size_t i = 0; read(fd, fbuf+(i*4096), 4096) > 0; i++);
 
     char* ext = strchr(req.path, '.'); // NOTE breaks if there's a dir with a dot...
+
     resp_set_ctype(&r, ext);    
-                
+
+    bool ok = false;
+    char* mtype = (char*)ext_to_mtype(ext);
+    for (int i = 0; i < req.headers.vec_sz; i++) {
+        char* item = shitvec_get(&req.headers, i);
+        if (strcmp(item, ext) == 0 || strcmp(item, "*/*") == 0) {
+            ok = true;
+            break;
+        }
+    }
+    if (!ok) return serve_error(NotAcceptable);
+    
     char datebuf[64];
     time_to_str(st.st_mtim.tv_sec, datebuf);
     resp_add_hdr(&r, "Last-Modified", datebuf);
@@ -62,16 +84,6 @@ response_t serve_file(request_t req) {
     free(buf);
     return r;
 }
-
-response_t serve_error(enum StatusCode c) {
-    response_t r = resp_new(c);
-    resp_add_hdr(&r, "Content-Type", "text/html");
-    char msg[32] = {0};
-    sprintf(msg, "<h1>Error %d</h1>", c);
-    resp_add_content(&r, msg, strlen(msg));
-    return r;
-}
-
 
 // TODO actually respect requests
 // TODO handle gzip
