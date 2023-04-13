@@ -51,14 +51,24 @@ response_t serve_file(request_t req) {
 
     resp_set_ctype(&r, ext);    
 
-    bool ok = false;
+	bool ok = true;
     char* mtype = (char*)ext_to_mtype(ext);
-    for (int i = 0; i < req.headers.vec_sz; i++) {
-        char* item = shitvec_get(&req.headers, i);
-        if (strcmp(item, ext) == 0 || strcmp(item, "*/*") == 0) {
-            ok = true;
-            break;
-        }
+	char* hdr;
+	char check[MAX_HEADER_NAME] = {0};
+	strcpy(check, "Accept");
+	if ((hdr = hashmap_get(&req.headers, check))) {
+		log_debug("Handling Accept header");
+		ok = false;
+		shitvec_t mtypes = hdr_parse_accept(hdr);
+		for (int j = 0; j < mtypes.vec_sz; j++) {
+			struct req_mimetype* a_mtype = shitvec_get(&mtypes, j);
+			log_debug("%s", a_mtype->item);
+			// TODO doesn't handle stuff like image/* (is that even allowed?)
+			if (strcmp(a_mtype->item, mtype) == 0 || strcmp(a_mtype->item, "*/*") == 0) {
+				ok = true;
+				break;
+			}
+		}
     }
     if (!ok) return serve_error(NotAcceptable);
     

@@ -140,3 +140,20 @@ void hashmap_free(hashmap_t* h) {
     free(h->keys);
     free(h->vals);
 }
+
+#ifdef TEST
+#include "../test.h"
+
+void test_hashmap_sanity() {
+	hashmap_t h = hashmap_new(16, 64);
+	hashmap_set(&h, "whoo", "This is a test.");
+	hashmap_set(&h, "Accept", "image/png,text/plain;q=0.5,image/jpeg");
+	hashmap_resize(&h); // make sure it doesn't explode
+	hashmap_set(&h, "Blah blah", "This is (another) test.");
+	assert_str_eq(hashmap_get(&h, "whoo"), "This is a test.");
+	assert_str_eq(hashmap_get(&h, "Accept"), "image/png,text/plain;q=0.5,image/jpeg");
+	assert_str_eq(hashmap_get(&h, "Blah blah"), "This is (another) test.");
+	hashmap_free(&h);
+}
+
+#endif
