@@ -73,7 +73,8 @@ int req_parse(request_t* req) {
             if (name[0] == '\r') return 0; // TODO sketch
             return -1; // Uhh... half a header.
         }
-		hashmap_set(&req->headers, &name, &value);
+        log_debug("Inserting '%s' (len %d) -> '%s'", name, strlen(name), value);
+		hashmap_set(&req->headers, name, value);
         start = memchr(start, '\n', MAX_HEADER_NAME+MAX_HEADER_VALUE)+1;
     }
     return 0;

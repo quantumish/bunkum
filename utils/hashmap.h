@@ -29,4 +29,6 @@ int hashmap_del(hashmap_t* h, void* k);
 // Frees a hashmap.
 void hashmap_free(hashmap_t* h);
 
+void hashmap_dump(hashmap_t* h);
+
 #endif

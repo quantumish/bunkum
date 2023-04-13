@@ -50,7 +50,7 @@ hashmap_t hashmap_new(size_t ksize, size_t vsize) {
 }
 
 int hashmap_kcmp(hashmap_t* h, void* a, void* b) {
-	log_debug("%s %s", a, b);
+	/* log_debug("%s (%p) vs. %s", a, a, b); */
 	if (h->vark) return strcmp(a, b);
 	return memcmp(a, b, h->k_sz);
 }
@@ -79,11 +79,19 @@ void hashmap_resize(hashmap_t* h) {
     free(tempv);
 }
 
+void hashmap_dump(hashmap_t* h) {
+    for (size_t off = 0; off < h->len; off+=1) {
+        char* k = h->keys + (off*h->k_sz);
+        char* v = h->vals + (off*h->v_sz);
+        log_debug("'%s' (%p) -> '%s'", k, k, v == NULL ? "NULL" : v);
+    }
+}
+
 int hashmap_set(hashmap_t* h, void* k, void* v) {
     // Check if load factor too high
 
     if ((float)h->filled / h->len > (float)2/3) hashmap_resize(h);
-    size_t index = hash(k, h->k_sz) % h->len;
+    size_t index = hash(k, h->vark ? strlen(k) : h->k_sz) % h->len;
     int looped_once = 0;
     // Start at the hashed index, iterate until own key or empty key is found
     for (size_t off = index; off < h->len; off+=1) {
@@ -96,7 +104,7 @@ int hashmap_set(hashmap_t* h, void* k, void* v) {
         if (iszero(h->keys + (off*h->k_sz), h->k_sz)) {
             h->filled++;
             memcpy(h->vals + (off*h->v_sz), v, h->v_sz);
-            hashmap_kcpy(k, h->keys + (off*h->k_sz), k);
+            hashmap_kcpy(h, h->keys + (off*h->k_sz), k);
             return 0x0;
         }
         if (off == h->len-1 && looped_once == 0) {
@@ -110,7 +118,7 @@ int hashmap_set(hashmap_t* h, void* k, void* v) {
 
 // Returns address of value if it exists, otherwise returns 0x0 for no value or 0x1 for full table.
 void* hashmap_get(hashmap_t* h, void* k) {
-    size_t index = hash(k, h->k_sz) % h->len;
+    size_t index = hash(k, h->vark ? strlen(k) : h->k_sz) % h->len;
     int looped_once = 0;
     // Start at the hashed index, iterate until wanted key or empty key is found
     for (size_t off = index; off < h->len; off+=1) {
@@ -131,7 +139,7 @@ void* hashmap_get(hashmap_t* h, void* k) {
 }
 
 int hashmap_del(hashmap_t* h, void* k) {
-    size_t index = hash(k, h->k_sz) % h->len;
+    size_t index = hash(k, h->vark ? strlen(k) : h->k_sz) % h->len;
     int looped_once = 0;
     for (size_t off = index; off < h->len; off+=1) {
         if (hashmap_kcmp(h, h->keys + (off * h->k_sz), k) == 0) {

@@ -53,7 +53,7 @@ response_t serve_file(request_t req) {
 
 	bool ok = true;
     char* mtype = (char*)ext_to_mtype(ext);
-	char* hdr;
+	char* hdr;    
 	if ((hdr = hashmap_get(&req.headers, "Accept"))) {
 		log_debug("Handling Accept header");
 		ok = false;
@@ -70,9 +70,9 @@ response_t serve_file(request_t req) {
     }
     if (!ok) return serve_error(NotAcceptable);
     
-    char datebuf[64];
-    time_to_str(st.st_mtim.tv_sec, datebuf);
-    resp_add_hdr(&r, "Last-Modified", datebuf);
+    /* char datebuf[64]; */
+    /* time_to_str(st.st_mtim.tv_sec, datebuf); */
+    /* resp_add_hdr(&r, "Last-Modified", datebuf); */
 
     char* buf = fbuf; // buffer to be written
     size_t bufsize = st.st_size;
@@ -102,6 +102,7 @@ response_t make_response (request_t req) {
         log_error("Failed to parse incoming request.");
         return serve_error(BadRequest);                
     }
+    /* hashmap_dump(&req.headers); */
             
     log_info("Got request %s %s", method_name(req.method), req.path);
 
