@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "../utils/log.h"
 #include "../utils/hashmap.h"
 #include "../utils/time.h"
 #include "response.h"
@@ -28,7 +29,7 @@ void resp_add_hdr(response_t* r, char* hdr, char* val) {
 }
 
 void resp_add_content(response_t* r, char* content, size_t content_len) {
-    char length[8];
+    char length[32];
     sprintf(length, "%ld", content_len);
     resp_add_hdr(r, "Content-Length", length);
     
@@ -41,19 +42,23 @@ void resp_add_content(response_t* r, char* content, size_t content_len) {
     memcpy(r->content+header_len, content, content_len);
 }
 
+const char* exts[] = {"html", "css", "js", "png", "gif", "jpeg", "svg", "ttf", "woff", "woff2", NULL}; // TODO sentinel sketchy
+const char* mtypes[] = {"text/html", "text/css", "text/javascript", "image/png",
+    "image/gif", "image/jpeg", "image/svg+xml", "font/ttf", "font/woff", "font/woff2"};
+
+// TODO find cleaner way of doing this
+// two lists and loop
 const char* ext_to_mtype(char* ext) {
     if (ext == NULL) {
         return"text/plain";        
-    } else if (strcmp(ext+1, "html") == 0) {
-        return"text/html";
-    } else if (strcmp(ext+1, "png") == 0) {
-        return"image/png";
-    } else if (strcmp(ext+1, "svg") == 0) {
-        return "image/svg+xml";
-    } else if (strcmp(ext+1, "jpeg") == 0) {
-        return "image/jpeg";                 
     }
 
+    for (size_t i = 0; exts[i] != NULL; i++) {
+        if (strcmp(ext, exts[i]) == 0) return mtypes[i];
+    }
+
+    log_warn("Giving up on mapping %s extension to a MIME type!", ext);
+    return "text/plain";
 }
 
 void resp_set_ctype(response_t* r, char* ext) {

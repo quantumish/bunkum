@@ -18,7 +18,7 @@ const char* method_name(enum http_method m);
 
 #define MAX_PATH_LEN 128
 #define MAX_HEADER_NAME 32
-#define MAX_HEADER_VALUE 128
+#define MAX_HEADER_VALUE 512
 #define MAX_MIMETYPE_LEN 32
 
 struct req_mimetype {

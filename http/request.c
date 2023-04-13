@@ -63,17 +63,17 @@ int req_parse(request_t* req) {
 
     req->headers = hashmap_new(MAX_HEADER_NAME, MAX_HEADER_VALUE);
 	req->headers.vark = true;
+    // FIXME if start is null this causes problems
     char* start = memchr(req->buf, '\n', MAX_HEADER_NAME+MAX_HEADER_VALUE)+1;
     while (start+MAX_HEADER_NAME+MAX_HEADER_VALUE < req->buf+req->bufsize) {
 		char name[MAX_HEADER_NAME] = {0};
-		char value[MAX_HEADER_VALUE] = {0};		
+		char value[MAX_HEADER_VALUE] = {0};
         int matched = sscanf(start, "%32[^:]: %s", name, value);
         if (matched == 0) return 0; // No more headers;
         else if (matched == 1) {
             if (name[0] == '\r') return 0; // TODO sketch
             return -1; // Uhh... half a header. NOTE doesn't even seem to work. fun.
         }
-        log_debug("Inserting '%s' (len %d) -> '%s'", name, strlen(name), value);
 		hashmap_set(&req->headers, name, value);
         start = memchr(start, '\n', MAX_HEADER_NAME+MAX_HEADER_VALUE)+1;
     }

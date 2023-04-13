@@ -25,7 +25,6 @@
 #include "http/response.h"
 #include "http/request.h"
 
-
 response_t serve_error(enum StatusCode c) {
     response_t r = resp_new(c);
     resp_add_hdr(&r, "Content-Type", "text/html");
@@ -36,6 +35,13 @@ response_t serve_error(enum StatusCode c) {
 }
 
 shitvec_t paths;
+
+char* get_file_ext(char* filename) {
+    char* ext = strtok(filename, ".");
+    char* next;
+    while ((next = strtok(NULL, "."))) ext = next;
+    return ext;
+}
 
 response_t serve_file(request_t req) {
     char path[128+8] = "./public";
@@ -48,7 +54,8 @@ response_t serve_file(request_t req) {
     char* fbuf = malloc(st.st_size); // TODO what if file larger than memory?
     for (size_t i = 0; read(fd, fbuf+(i*4096), 4096) > 0; i++);
 
-    char* ext = strchr(req.path, '.'); // NOTE breaks if there's a dir with a dot...
+    
+    char* ext = get_file_ext(req.path);
 
     resp_set_ctype(&r, ext);    
 
@@ -56,12 +63,10 @@ response_t serve_file(request_t req) {
     char* mtype = (char*)ext_to_mtype(ext);
 	char* hdr;    
 	if ((hdr = hashmap_get(&req.headers, "Accept"))) {
-		log_debug("Handling Accept header");
 		ok = false;
 		shitvec_t mtypes = hdr_parse_accept(hdr);
 		for (int j = 0; j < mtypes.vec_sz; j++) {
 			struct req_mimetype* a_mtype = shitvec_get(&mtypes, j);
-			log_debug("%s", a_mtype->item);
 			// TODO doesn't handle stuff like image/* (is that even allowed?)
 			if (strcmp(a_mtype->item, mtype) == 0 || strcmp(a_mtype->item, "*/*") == 0) {
 				ok = true;
@@ -69,17 +74,15 @@ response_t serve_file(request_t req) {
 			}
 		}
     }
-
+    
     char* buf = fbuf; // buffer to be written
     size_t bufsize = st.st_size;
     
     if (ok && (hdr = hashmap_get(&req.headers, "Accept-Encoding"))) {
-		log_debug("Handling Accept-Encoding header");
 		ok = false;
 		shitvec_t mtypes = hdr_parse_accept(hdr); // abuse of this func
 		for (int j = 0; j < mtypes.vec_sz; j++) {
 			struct req_mimetype* a_mtype = shitvec_get(&mtypes, j);
-			log_debug("%s", a_mtype->item);
             if (strcmp(a_mtype->item, "gzip") == 0) {
                 resp_add_hdr(&r, "Content-Encoding", "gzip");
                 buf = gzip_compress(buf, &bufsize);
@@ -97,10 +100,12 @@ response_t serve_file(request_t req) {
 		}
     }
     if (!ok) return serve_error(NotAcceptable);
-    
-    /* char datebuf[64]; */
-    /* time_to_str(st.st_mtim.tv_sec, datebuf); */
-    /* resp_add_hdr(&r, "Last-Modified", datebuf); */   
+
+    #ifndef __APPLE__
+    char datebuf[64];
+    time_to_str(st.st_mtim.tv_sec, datebuf);
+    resp_add_hdr(&r, "Last-Modified", datebuf);   
+    #endif
     
     resp_add_content(&r, buf, bufsize);
     free(buf);

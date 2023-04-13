@@ -1,4 +1,4 @@
-CFLAGS?=-O2 -g
+CFLAGS?= -g
 LIBS:=-lz -lpthread
 CLIBS = $(wildcard utils/*.c) $(wildcard http/*.c)
 OBJ = $(wildcard build/*.o)

@@ -11,7 +11,7 @@
 
 #include "log.h"
 
-#define LOG_MAX_MSGLEN 128
+#define LOG_MAX_MSGLEN 1024
 
 #define ANSI_RED "\x1b[31m"
 #define ANSI_BOLDRED "\x1b[1;31m"
