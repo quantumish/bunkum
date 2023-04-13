@@ -71,7 +71,7 @@ int req_parse(request_t* req) {
         if (matched == 0) return 0; // No more headers;
         else if (matched == 1) {
             if (name[0] == '\r') return 0; // TODO sketch
-            return -1; // Uhh... half a header.
+            return -1; // Uhh... half a header. NOTE doesn't even seem to work. fun.
         }
         log_debug("Inserting '%s' (len %d) -> '%s'", name, strlen(name), value);
 		hashmap_set(&req->headers, name, value);

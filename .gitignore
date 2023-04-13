@@ -12,3 +12,6 @@ public/
 *~
 \#*\#
 .\#*
+
+# osx-related?
+*.dSYM/

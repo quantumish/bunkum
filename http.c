@@ -21,6 +21,7 @@
 #include "utils/log.h"
 #include "utils/time.h"
 #include "utils/shitvec.h"
+#include "utils/compress.h"
 #include "http/response.h"
 #include "http/request.h"
 
@@ -68,25 +69,38 @@ response_t serve_file(request_t req) {
 			}
 		}
     }
-    if (!ok) return serve_error(NotAcceptable);
-    
-    /* char datebuf[64]; */
-    /* time_to_str(st.st_mtim.tv_sec, datebuf); */
-    /* resp_add_hdr(&r, "Last-Modified", datebuf); */
 
     char* buf = fbuf; // buffer to be written
     size_t bufsize = st.st_size;
     
-    if (ext == NULL || strcmp(ext, ".png") != 0) {
-        resp_add_hdr(&r, "Content-Encoding", "deflate");
-        size_t clen = compressBound(st.st_size);
-        char* cbuf = malloc(clen);
-        compress((Bytef*)cbuf, &clen, (Bytef*)buf, bufsize);
-        free(buf);
-
-        buf = cbuf;
-        bufsize = clen;
+    if (ok && (hdr = hashmap_get(&req.headers, "Accept-Encoding"))) {
+		log_debug("Handling Accept-Encoding header");
+		ok = false;
+		shitvec_t mtypes = hdr_parse_accept(hdr); // abuse of this func
+		for (int j = 0; j < mtypes.vec_sz; j++) {
+			struct req_mimetype* a_mtype = shitvec_get(&mtypes, j);
+			log_debug("%s", a_mtype->item);
+            if (strcmp(a_mtype->item, "gzip") == 0) {
+                resp_add_hdr(&r, "Content-Encoding", "gzip");
+                buf = gzip_compress(buf, &bufsize);
+                ok = true;
+				break;
+			} else if (strcmp(a_mtype->item, "deflate") == 0) {
+                resp_add_hdr(&r, "Content-Encoding", "deflate");
+                buf = zlib_compress(buf, &bufsize);
+                ok = true;
+                break;
+            } else if (strcmp(a_mtype->item, "identity") == 0) {
+				ok = true;
+				break;
+			}
+		}
     }
+    if (!ok) return serve_error(NotAcceptable);
+    
+    /* char datebuf[64]; */
+    /* time_to_str(st.st_mtim.tv_sec, datebuf); */
+    /* resp_add_hdr(&r, "Last-Modified", datebuf); */   
     
     resp_add_content(&r, buf, bufsize);
     free(buf);
