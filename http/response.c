@@ -42,9 +42,12 @@ void resp_add_content(response_t* r, char* content, size_t content_len) {
     memcpy(r->content+header_len, content, content_len);
 }
 
-const char* exts[] = {"html", "css", "js", "png", "gif", "jpeg", "svg", "ttf", "woff", "woff2", NULL}; // TODO sentinel sketchy
+const char* exts[] = {"html", "css", "js", "png", "gif", "jpeg", "svg", "ttf", "woff", "woff2",
+    "pdf", "csv", "gz", "tar", "zip", "json", NULL}; // TODO sentinel sketchy
 const char* mtypes[] = {"text/html", "text/css", "text/javascript", "image/png",
-    "image/gif", "image/jpeg", "image/svg+xml", "font/ttf", "font/woff", "font/woff2"};
+    "image/gif", "image/jpeg", "image/svg+xml", "font/ttf", "font/woff", "font/woff2",
+    "application/pdf", "text/csv", "application/gzip",  "application/x-tar", "application/zip",
+    "application/json"};
 
 const char* ext_to_mtype(char* ext) {
     if (ext == NULL) return"text/plain";        

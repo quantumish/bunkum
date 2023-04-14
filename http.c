@@ -81,7 +81,7 @@ response_t serve_file(request_t req) {
     
     if (ok && (hdr = hashmap_get(&req.headers, "Accept-Encoding"))) {
 		ok = false;
-		shitvec_t mtypes = hdr_parse_accept(hdr); // abuse of this func
+		shitvec_t mtypes = hdr_parse_accept(hdr); // abuse of this func  
 		for (int j = 0; j < mtypes.vec_sz; j++) {
 			struct req_mimetype* a_mtype = shitvec_get(&mtypes, j);
             if (strcmp(a_mtype->item, "gzip") == 0) {
@@ -199,7 +199,7 @@ int main() {
     name.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(s, (struct sockaddr*)&name, sizeof(name)) < 0) {
-        name.sin_port = htons(8081);
+        name.sin_port = htons(0);
         if (bind(s, (struct sockaddr*)&name, sizeof(name)) < 0) {
             die("bind");
         }
@@ -211,9 +211,10 @@ int main() {
     hashmap_set(&path_redirs, "/", "/index.html");
     
     list_files_sv(&paths, "public");
-    // TODO handle special non-file paths
-    
-    log_debug("Open on port 8082.");    
+
+    int nlen;
+    getsockname(s, (struct sockaddr*)&name, (socklen_t*)&nlen);
+    log_debug("Open on port %d.", htons(name.sin_port));
     
     int namelen;
     char pathbuf[MAX_PATH_LEN];
@@ -234,4 +235,7 @@ int main() {
 // - TODO HTML parsing maybe but that makes me want to cry
 // - TODO nice ways of dynamically *generating* html
 // - TODO dynamically profile requests
+
+
+
 // - TODO some kinda config file parsing
