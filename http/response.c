@@ -46,12 +46,8 @@ const char* exts[] = {"html", "css", "js", "png", "gif", "jpeg", "svg", "ttf", "
 const char* mtypes[] = {"text/html", "text/css", "text/javascript", "image/png",
     "image/gif", "image/jpeg", "image/svg+xml", "font/ttf", "font/woff", "font/woff2"};
 
-// TODO find cleaner way of doing this
-// two lists and loop
 const char* ext_to_mtype(char* ext) {
-    if (ext == NULL) {
-        return"text/plain";        
-    }
+    if (ext == NULL) return"text/plain";        
 
     for (size_t i = 0; exts[i] != NULL; i++) {
         if (strcmp(ext, exts[i]) == 0) return mtypes[i];

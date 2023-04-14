@@ -35,6 +35,7 @@ response_t serve_error(enum StatusCode c) {
 }
 
 shitvec_t paths;
+hashmap_t path_redirs;
 
 char* get_file_ext(char* filename) {
     char* ext = strtok(filename, ".");
@@ -113,7 +114,6 @@ response_t serve_file(request_t req) {
 }
 
 // TODO actually respect requests
-// TODO handle gzip
 // TODO list dirs
 
 response_t make_response (request_t req) {
@@ -125,6 +125,12 @@ response_t make_response (request_t req) {
             
     log_info("Got request %s %s", method_name(req.method), req.path);
 
+    char* mapped_path = hashmap_get(&path_redirs, req.path);
+    if (mapped_path != NULL) {
+        log_debug("test");
+        strcpy(req.path, mapped_path);
+    }
+    
     if (!shitvec_check(&paths, req.path, (sv_cmp_t)strcmp)) {
         return serve_error(NotFound);
     }
@@ -200,6 +206,10 @@ int main() {
     }    
 
     paths = shitvec_new(MAX_PATH_LEN);
+    path_redirs = hashmap_new(MAX_PATH_LEN, MAX_PATH_LEN);
+    path_redirs.vark = true;
+    hashmap_set(&path_redirs, "/", "/index.html");
+    
     list_files_sv(&paths, "public");
     // TODO handle special non-file paths
     

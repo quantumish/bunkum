@@ -50,7 +50,6 @@ hashmap_t hashmap_new(size_t ksize, size_t vsize) {
 }
 
 int hashmap_kcmp(hashmap_t* h, void* a, void* b) {
-	/* log_debug("%s (%p) vs. %s", a, a, b); */
 	if (h->vark) return strcmp(a, b);
 	return memcmp(a, b, h->k_sz);
 }
@@ -136,6 +135,7 @@ void* hashmap_get(hashmap_t* h, void* k) {
             looped_once = 1;
         }
     }
+    return 0x0; // unreachable?
 }
 
 int hashmap_del(hashmap_t* h, void* k) {

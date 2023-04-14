@@ -29,6 +29,7 @@ int cmp_r_mimetype(const void* a, const void* b) {
     if (aa->q > bb->q) return -1;
     else if (aa->q == bb->q) return 0;
     else if (aa->q < bb->q) return 1;
+    return 0; // unreachable?
 }
 
 // TODO handle parse errors
