@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <bits/time.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -151,8 +153,18 @@ double diff_timespec(const struct timespec *time1, const struct timespec *time0)
       + (time1->tv_nsec - time0->tv_nsec) / 1000000000.0;
 }
 
+struct handle_conn_ctxt {
+	int ns;
+	channel_t* chan;
+};
+
 void* handle_conn(void* ctxt) {
-    int ns = *(int*)ctxt;
+    channel_t* chan = ((struct handle_conn_ctxt *)ctxt)->chan;
+	int ns = ((struct handle_conn_ctxt *)ctxt)->ns;
+
+	pid_t tid = gettid();
+	channel_push(chan, &tid);
+	
     char msgbuf[1024] = {0};
     while(true) {
         struct timespec before, after, tdiff;
@@ -201,7 +213,6 @@ void* listen_for_conns(void* ctxt) {
 	int s = *(int*)ctxt;
 	int namelen;
     struct sockaddr_in client;
-	log_info("Hi!");
 	while (true) {
         listen(s, 1);
         int ns = accept(s, (struct sockaddr*)&client, (socklen_t*)&namelen);
@@ -241,11 +252,24 @@ int main() {
 
 	pthread_t lthread;
 	pthread_create(&lthread, NULL, listen_for_conns, &s);
+	shitvec_t channels = shitvec_new(sizeof(channel_t));
+
+	int* ns;
+	pid_t* tid;
     while (true) {		
-		int ns = *(int*)channel_recv(&listen_chan);
-		
-        pthread_t thread;
-        pthread_create(&thread, NULL, handle_conn, &ns);
+		if ((ns = channel_try_recv(&listen_chan))) {
+			channel_t chan = channel_new(sizeof(pid_t));
+			shitvec_push(&channels, &chan);
+			channel_t* chanp = shitvec_last(&channels);
+			struct handle_conn_ctxt ctxt = { .chan = chanp, .ns = *ns };
+			pthread_t thread;
+			pthread_create(&thread, NULL, handle_conn, &ctxt);
+		}
+		for (size_t i = 0; i < channels.vec_sz; i++) {
+			if ((tid = channel_try_recv(shitvec_get(&channels, i)))) {				
+				log_debug("tid %d", *tid);
+			}
+		}			   
     }
 }
 

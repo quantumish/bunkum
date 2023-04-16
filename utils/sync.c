@@ -28,7 +28,15 @@ void* channel_pop(channel_t* chan) {
 	return out;
 }
 
-void* channel_recv(channel_t * chan) {
+void* channel_recv(channel_t* chan) {
 	while(__atomic_load_n(&chan->sz, __ATOMIC_RELAXED) == 0);	
 	return channel_pop(chan);
 }
+
+void* channel_try_recv(channel_t* chan) {
+	if (__atomic_load_n(&chan->sz, __ATOMIC_RELAXED) > 0) {
+		return channel_pop(chan);
+	}
+	return 0x0;
+}
+

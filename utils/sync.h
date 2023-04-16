@@ -14,6 +14,7 @@ typedef struct channel {
 channel_t channel_new(size_t msg_sz);
 void channel_push(channel_t* chan, void* msg);
 void* channel_pop(channel_t* chan);
-void* channel_recv(channel_t * chan);
+void* channel_recv(channel_t* chan);
+void* channel_try_recv(channel_t* chan);
 
 #endif

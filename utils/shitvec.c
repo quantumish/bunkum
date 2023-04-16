@@ -19,6 +19,10 @@ void* shitvec_get(shitvec_t* sv, size_t index) {
     return sv->arr+(sv->e_sz * index);
 }
 
+void* shitvec_last(shitvec_t* sv) {
+	return shitvec_get(sv, sv->vec_sz-1);
+}
+
 void shitvec_push(shitvec_t* sv, void* item) {
     // FIXME sketchy af
     if ((sv->arr+(2 * sv->e_sz * sv->vec_sz)) > sv->arr+sv->alloc_sz) {
