@@ -1,5 +1,5 @@
 CFLAGS?= -g
-LIBS:=-lz -lpthread
+LIBS:=-lz -lpthread -lunwind -lunwind-ptrace -lunwind-generic
 CLIBS = $(wildcard utils/*.c) $(wildcard http/*.c)
 OBJ = $(wildcard build/*.o)
 

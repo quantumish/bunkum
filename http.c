@@ -10,16 +10,22 @@
 #include <assert.h>
 #include <dirent.h>
 
+#include <signal.h>
+#include <errno.h>
+
 #include <sys/stat.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
 #include <sys/types.h>
+#include <sys/ptrace.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 
 #include <pthread.h>
 #include <time.h>
 
 #include <zlib.h>
+#include <libunwind.h>
+#include <libunwind-ptrace.h>
 
 #include "utils/log.h"
 #include "utils/time.h"
@@ -122,13 +128,19 @@ response_t serve_file(request_t* req) {
 // TODO actually respect requests
 // TODO list dirs
 
-response_t make_response (request_t* req) {
+response_t make_response (request_t* req, channel_t* chan) {
     if (req_parse(req) < 0) {
         log_error("Failed to parse incoming request.");
         return serve_error(BadRequest);                
     }
-    /* hashmap_dump(&req.headers); */
-            
+
+	if (hashmap_get(&req->headers, "Profile") != 0x0) {
+		int profile = true;
+		ptrace(PTRACE_TRACEME, NULL);
+		channel_push(chan, &profile);
+		usleep(10000);
+	}
+	
     log_info("Got request %s %s", method_name(req->method), req->path);
 
     char* mapped_path = hashmap_get(&path_redirs, req->path);
@@ -176,7 +188,7 @@ void* handle_conn(void* ctxt) {
         if (msgbuf[0] != 0) {
             request_t req = req_new(msgbuf, 1024);
 			
-            response_t r = make_response(&req);            
+            response_t r = make_response(&req, chan);            
             send(ns, r.content, r.sz, 0);
             free(r.content);
 
@@ -221,6 +233,34 @@ void* listen_for_conns(void* ctxt) {
 	}
 }
 
+#define MAX_SYMLEN 128
+
+int profile(pid_t tid) {
+	if (ptrace(PTRACE_ATTACH, tid) < 0) {
+		log_error("ptrace() fail, errno %d", errno);
+	}
+	void* ui = _UPT_create(tid);
+	if (!ui) return -1;
+	unw_cursor_t c;
+	unw_addr_space_t as = unw_create_addr_space(&_UPT_accessors, 0);
+	unw_init_remote(&c, as, ui);
+	do {
+		unw_word_t offset;
+		char fname[MAX_SYMLEN] = {0};
+		int resp = unw_get_proc_name(&c, fname, sizeof(fname), &offset);
+		log_trace("%s (code %d, errno %d)", fname, resp, errno);
+	} while(unw_step(&c) > 0);
+	_UPT_resume(as, &c, ui);
+	_UPT_destroy(ui);
+	kill(tid, SIGCONT);
+	return 0;
+}
+
+struct thread_comm {
+	channel_t chan;
+	pid_t tid;
+};
+
 // TODO some sort of DDOS protection idk
 int main() {
     int s = socket(AF_INET, SOCK_STREAM, 0);
@@ -252,7 +292,8 @@ int main() {
 
 	pthread_t lthread;
 	pthread_create(&lthread, NULL, listen_for_conns, &s);
-	shitvec_t channels = shitvec_new(sizeof(channel_t));
+	
+	shitvec_t channels = shitvec_new(sizeof(struct thread_comm));
 
 	int* ns;
 	pid_t* tid;
@@ -266,8 +307,14 @@ int main() {
 			pthread_create(&thread, NULL, handle_conn, &ctxt);
 		}
 		for (size_t i = 0; i < channels.vec_sz; i++) {
-			if ((tid = channel_try_recv(shitvec_get(&channels, i)))) {				
-				log_debug("tid %d", *tid);
+		    struct thread_comm* comm = shitvec_get(&channels, i);
+			if ((tid = channel_try_recv(&comm->chan))) {
+				if (*tid == 1) {
+					for (int j = 0; j < 10; j++) {
+						profile(comm->tid);
+						usleep(10);
+					}
+				} else comm->tid = *tid;
 			}
 		}			   
     }
