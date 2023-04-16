@@ -1,3 +1,4 @@
+#include <bits/time.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -12,9 +13,9 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
-#include <sys/time.h>
 
 #include <pthread.h>
+#include <time.h>
 
 #include <zlib.h>
 
@@ -145,26 +146,30 @@ response_t make_response (request_t* req) {
     return serve_error(InternalServerError); // should be unreachable?
 }
 
+double diff_timespec(const struct timespec *time1, const struct timespec *time0) {
+  return (time1->tv_sec - time0->tv_sec)
+      + (time1->tv_nsec - time0->tv_nsec) / 1000000000.0;
+}
+
 void* handle_conn(void* ctxt) {
     int ns = *(int*)ctxt;
     char msgbuf[1024] = {0};
     while(true) {
-        struct timeval before, after, tdiff;
+        struct timespec before, after, tdiff;
         if (recv(ns, msgbuf, 1024, 0) == 0) {
             log_info("Closing connection.");
             return 0x0;
         }
-        gettimeofday(&before, NULL);
+        clock_gettime(CLOCK_MONOTONIC, &before);
         if (msgbuf[0] != 0) {
             request_t req = req_new(msgbuf, 1024);
 			
             response_t r = make_response(&req);            
             send(ns, r.content, r.sz, 0);
             free(r.content);
-            
-            gettimeofday(&after, NULL);
-            timersub(&after, &before, &tdiff);
-            log_info("Handled request in %ld.%06ld sec", req.path, tdiff.tv_sec, tdiff.tv_usec);
+
+			clock_gettime(CLOCK_MONOTONIC, &after);            
+            log_info("Handled request in %f sec", diff_timespec(&after, &before));
             req_free(&req);
         }
     }
