@@ -41,6 +41,7 @@ hashmap_t hashmap_new(size_t ksize, size_t vsize) {
     // Keys and vals are in different arrays so unnecessary things aren't in cache
     h.keys = calloc(HASHMAP_INIT_SIZE, ksize);
     h.vals = malloc(vsize * HASHMAP_INIT_SIZE);
+	log_debug("in init %p %p", h.keys, h.vals);
     h.k_sz = ksize;
     h.v_sz = vsize;
     h.len = HASHMAP_INIT_SIZE;

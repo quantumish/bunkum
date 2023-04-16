@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "../utils/log.h"
 #include "request.h"
@@ -20,6 +21,8 @@ request_t req_new(char* reqbuf, size_t bufsize) {
     request_t req;
     req.buf = reqbuf;
     req.bufsize = bufsize;
+	req.headers = hashmap_new(MAX_HEADER_NAME, MAX_HEADER_VALUE);
+	req.headers.vark = true;
     return req;
 }
 
@@ -61,9 +64,7 @@ int req_parse(request_t* req) {
     int matched = sscanf(req->buf, "%s %s HTTP/%f\r\n", (char*)method, (char*)req->path, &req->ver);
     if (matched < 3 || matched == EOF) return -1;
     req->method = method_enum((char*)method);
-
-    req->headers = hashmap_new(MAX_HEADER_NAME, MAX_HEADER_VALUE);
-	req->headers.vark = true;
+    
     // FIXME if start is null this causes problems
     char* start = memchr(req->buf, '\n', MAX_HEADER_NAME+MAX_HEADER_VALUE)+1;
     while (start+MAX_HEADER_NAME+MAX_HEADER_VALUE < req->buf+req->bufsize) {

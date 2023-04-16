@@ -21,9 +21,12 @@
 #include "utils/log.h"
 #include "utils/time.h"
 #include "utils/shitvec.h"
+#include "utils/sync.h"
+
 #include "utils/compress.h"
 #include "http/response.h"
 #include "http/request.h"
+
 
 response_t serve_error(enum StatusCode c) {
     response_t r = resp_new(c);
@@ -155,7 +158,8 @@ void* handle_conn(void* ctxt) {
         gettimeofday(&before, NULL);
         if (msgbuf[0] != 0) {
             request_t req = req_new(msgbuf, 1024);
-            
+			log_debug("after init %p %p", req.headers.keys, req.headers.vals);
+			
             response_t r = make_response(req);            
             send(ns, r.content, r.sz, 0);
             free(r.content);
@@ -188,23 +192,37 @@ int list_files_sv(shitvec_t* sv, char* base) {
     return 0;
 }
 
+channel_t listen_chan;
+
+void* listen_for_conns(void* ctxt) {
+	int s = *(int*)ctxt;
+	int namelen;
+    struct sockaddr_in client;
+	log_info("Hi!");
+	while (true) {
+        listen(s, 1);
+        int ns = accept(s, (struct sockaddr*)&client, (socklen_t*)&namelen);
+		log_info("Handling connection from %s", inet_ntoa(client.sin_addr));
+		channel_push(&listen_chan, &ns);  
+	}
+}
+
 // TODO some sort of DDOS protection idk
 int main() {
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s == -1) die("socket");
     
+	int portnum = 8080;
     struct sockaddr_in name;
     name.sin_family = AF_INET;
-    name.sin_port = htons(8082);
+    name.sin_port = htons(portnum);
     name.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if (bind(s, (struct sockaddr*)&name, sizeof(name)) < 0) {
-        name.sin_port = htons(0);
-        if (bind(s, (struct sockaddr*)&name, sizeof(name)) < 0) {
-            die("bind");
-        }
-    }    
-
+	while(bind(s, (struct sockaddr*)&name, sizeof(name)) < 0) {
+		portnum += 1;
+		name.sin_port = htons(portnum);
+	}
+   
     paths = shitvec_new(MAX_PATH_LEN);
     path_redirs = hashmap_new(MAX_PATH_LEN, MAX_PATH_LEN);
     path_redirs.vark = true;
@@ -216,15 +234,14 @@ int main() {
     getsockname(s, (struct sockaddr*)&name, (socklen_t*)&nlen);
     log_debug("Open on port %d.", htons(name.sin_port));
     
-    int namelen;
-    char pathbuf[MAX_PATH_LEN];
-    struct sockaddr_in client;
-    char msgbuf[512] = {0};    
-    while (true) {
-        listen(s, 1);
-        int ns = accept(s, (struct sockaddr*)&client, (socklen_t*)&namelen);
+	listen_chan = channel_new(sizeof(int));	
 
-        log_info("Handling connection from %s", inet_ntoa(client.sin_addr));
+	pthread_t lthread;
+	pthread_create(&lthread, NULL, listen_for_conns, &s);
+    while (true) {		
+		int ns = *(int*)channel_recv(&listen_chan);
+		log_debug("%d", ns);
+		
         pthread_t thread;
         pthread_create(&thread, NULL, handle_conn, &ns);
     }

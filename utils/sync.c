@@ -1,16 +1,6 @@
 
-
-#include <pthread.h>
-#include "shitvec.h"
-
-
-typedef struct channel {
-    pthread_mutex_t mutex;
-    shitvec_t queue;
-    size_t msg_sz;
-    size_t sz;
-} channel_t;
-
+#include "log.h"
+#include "sync.h"
 
 channel_t channel_new(size_t msg_sz) {
     channel_t out;
@@ -18,6 +8,7 @@ channel_t channel_new(size_t msg_sz) {
     pthread_mutex_init(&out.mutex, NULL);
     out.queue = shitvec_new(msg_sz);
     out.sz = 0;
+	return out;
 }
 
 void channel_push(channel_t* chan, void* msg) {
@@ -38,6 +29,6 @@ void* channel_pop(channel_t* chan) {
 }
 
 void* channel_recv(channel_t * chan) {
-	while (__atomic_load_n(&chan->sz, __ATOMIC_RELAXED) == 0);
-	return channel_pop(chan);	
+	while(__atomic_load_n(&chan->sz, __ATOMIC_RELAXED) == 0);	
+	return channel_pop(chan);
 }
