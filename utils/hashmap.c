@@ -41,7 +41,6 @@ hashmap_t hashmap_new(size_t ksize, size_t vsize) {
     // Keys and vals are in different arrays so unnecessary things aren't in cache
     h.keys = calloc(HASHMAP_INIT_SIZE, ksize);
     h.vals = malloc(vsize * HASHMAP_INIT_SIZE);
-	log_debug("in init %p %p", h.keys, h.vals);
     h.k_sz = ksize;
     h.v_sz = vsize;
     h.len = HASHMAP_INIT_SIZE;
@@ -66,7 +65,7 @@ void hashmap_resize(hashmap_t* h) {
     h->len *= 2;
     // Simple to use calloc here because keys need to be initialized to zero.
     h->keys = calloc(h->len, h->k_sz);
-    h->vals = malloc(h->len * h->v_sz);
+    h->vals = malloc(h->len * h->v_sz);   
     // Copy all keys and values
     for (size_t off = 0; off < (h->len / 2); off++) {
         // Don't bother copying entries with empty keys
@@ -89,7 +88,6 @@ void hashmap_dump(hashmap_t* h) {
 
 int hashmap_set(hashmap_t* h, void* k, void* v) {
     // Check if load factor too high
-
     if ((float)h->filled / h->len > (float)2/3) hashmap_resize(h);
     size_t index = hash(k, h->vark ? strlen(k) : h->k_sz) % h->len;
     int looped_once = 0;

@@ -47,9 +47,9 @@ char* get_file_ext(char* filename) {
     return ext;
 }
 
-response_t serve_file(request_t req) {
+response_t serve_file(request_t* req) {
     char path[128+8] = "./public";
-    strcat(path, req.path);
+    strcat(path, req->path);
     int fd = open(path, O_RDONLY); // TODO handle
     response_t r = resp_new(OK);
  
@@ -59,14 +59,14 @@ response_t serve_file(request_t req) {
     for (size_t i = 0; read(fd, fbuf+(i*4096), 4096) > 0; i++);
 
     
-    char* ext = get_file_ext(req.path);
+    char* ext = get_file_ext(req->path);
 
     resp_set_ctype(&r, ext);    
 
 	bool ok = true;
     char* mtype = (char*)ext_to_mtype(ext);
 	char* hdr;    
-	if ((hdr = hashmap_get(&req.headers, "Accept"))) {
+	if ((hdr = hashmap_get(&req->headers, "Accept"))) {
 		ok = false;
 		shitvec_t mtypes = hdr_parse_accept(hdr);
 		for (int j = 0; j < mtypes.vec_sz; j++) {
@@ -82,7 +82,7 @@ response_t serve_file(request_t req) {
     char* buf = fbuf; // buffer to be written
     size_t bufsize = st.st_size;
     
-    if (ok && (hdr = hashmap_get(&req.headers, "Accept-Encoding"))) {
+    if (ok && (hdr = hashmap_get(&req->headers, "Accept-Encoding"))) {
 		ok = false;
 		shitvec_t mtypes = hdr_parse_accept(hdr); // abuse of this func  
 		for (int j = 0; j < mtypes.vec_sz; j++) {
@@ -119,26 +119,25 @@ response_t serve_file(request_t req) {
 // TODO actually respect requests
 // TODO list dirs
 
-response_t make_response (request_t req) {
-    if (req_parse(&req) < 0) {
+response_t make_response (request_t* req) {
+    if (req_parse(req) < 0) {
         log_error("Failed to parse incoming request.");
         return serve_error(BadRequest);                
     }
     /* hashmap_dump(&req.headers); */
             
-    log_info("Got request %s %s", method_name(req.method), req.path);
+    log_info("Got request %s %s", method_name(req->method), req->path);
 
-    char* mapped_path = hashmap_get(&path_redirs, req.path);
+    char* mapped_path = hashmap_get(&path_redirs, req->path);
     if (mapped_path != NULL) {
-        log_debug("test");
-        strcpy(req.path, mapped_path);
+        strcpy(req->path, mapped_path);
     }
     
-    if (!shitvec_check(&paths, req.path, (sv_cmp_t)strcmp)) {
+    if (!shitvec_check(&paths, req->path, (sv_cmp_t)strcmp)) {
         return serve_error(NotFound);
     }
     
-    switch (req.method) {
+    switch (req->method) {
     case GET: return serve_file(req); break;
     default: return serve_error(MethodNotAllowed);
     }
@@ -158,9 +157,8 @@ void* handle_conn(void* ctxt) {
         gettimeofday(&before, NULL);
         if (msgbuf[0] != 0) {
             request_t req = req_new(msgbuf, 1024);
-			log_debug("after init %p %p", req.headers.keys, req.headers.vals);
 			
-            response_t r = make_response(req);            
+            response_t r = make_response(&req);            
             send(ns, r.content, r.sz, 0);
             free(r.content);
             
@@ -240,7 +238,6 @@ int main() {
 	pthread_create(&lthread, NULL, listen_for_conns, &s);
     while (true) {		
 		int ns = *(int*)channel_recv(&listen_chan);
-		log_debug("%d", ns);
 		
         pthread_t thread;
         pthread_create(&thread, NULL, handle_conn, &ns);

@@ -17,6 +17,9 @@ enum http_method method_enum(char* p) {
     return method_codes[((*(uint64_t*)p*0x1b8b6e6d) % 0x100000000) >> 28];
 }
 
+// Be careful about passing by value! if the internal hashmap resizes
+// a req_free() call on the original (the one copied *from*) will be a
+// double free() error
 request_t req_new(char* reqbuf, size_t bufsize) {
     request_t req;
     req.buf = reqbuf;
