@@ -134,12 +134,12 @@ response_t make_response (request_t* req, channel_t* chan) {
         return serve_error(BadRequest);                
     }
 
-	if (hashmap_get(&req->headers, "Profile") != 0x0) {
-		int profile = true;
-		ptrace(PTRACE_TRACEME, NULL);
-		channel_push(chan, &profile);
-		usleep(10000);
-	}
+	/* if (hashmap_get(&req->headers, "Profile") != 0x0) { */
+	/* 	int profile = true; */
+	/* 	channel_push(chan, &profile); */
+	/* 	ptrace(PTRACE_TRACEME, NULL); */
+	/* 	usleep(10000); */
+	/* } */
 	
     log_info("Got request %s %s", method_name(req->method), req->path);
 
@@ -175,10 +175,13 @@ void* handle_conn(void* ctxt) {
 	int ns = ((struct handle_conn_ctxt *)ctxt)->ns;
 
 	pid_t tid = gettid();
+	log_debug("my tid %d", tid);
 	channel_push(chan, &tid);
 	
     char msgbuf[1024] = {0};
     while(true) {
+		tid = gettid();
+		log_debug("my tid %d", tid);
         struct timespec before, after, tdiff;
         if (recv(ns, msgbuf, 1024, 0) == 0) {
             log_info("Closing connection.");
@@ -236,6 +239,7 @@ void* listen_for_conns(void* ctxt) {
 #define MAX_SYMLEN 128
 
 int profile(pid_t tid) {
+	errno = 0;
 	if (ptrace(PTRACE_ATTACH, tid) < 0) {
 		log_error("ptrace() fail, errno %d", errno);
 	}
@@ -252,7 +256,7 @@ int profile(pid_t tid) {
 	} while(unw_step(&c) > 0);
 	_UPT_resume(as, &c, ui);
 	_UPT_destroy(ui);
-	kill(tid, SIGCONT);
+	ptrace(PTRACE_CONT, tid);
 	return 0;
 }
 
@@ -309,12 +313,11 @@ int main() {
 		for (size_t i = 0; i < channels.vec_sz; i++) {
 		    struct thread_comm* comm = shitvec_get(&channels, i);
 			if ((tid = channel_try_recv(&comm->chan))) {
-				if (*tid == 1) {
-					for (int j = 0; j < 10; j++) {
-						profile(comm->tid);
-						usleep(10);
-					}
-				} else comm->tid = *tid;
+				/* for (int j = 0; j < 10; j++) { */
+				/* 	profile(*tid); */
+				/* 	usleep(10); */
+				/* } */
+				/* } else comm->tid = *tid; */
 			}
 		}			   
     }
