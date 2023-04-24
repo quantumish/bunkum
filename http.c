@@ -31,8 +31,9 @@
 #include "utils/time.h"
 #include "utils/shitvec.h"
 #include "utils/sync.h"
-
+#include "utils/html.h"
 #include "utils/compress.h"
+
 #include "http/response.h"
 #include "http/request.h"
 
@@ -40,8 +41,17 @@
 response_t serve_error(enum StatusCode c) {
     response_t r = resp_new(c);
     resp_add_hdr(&r, "Content-Type", "text/html");
-    char msg[32] = {0};
-    sprintf(msg, "<h1>Error %d</h1>", c);
+
+	char errt[256];
+	sprintf(errt, "Error %d", c);
+
+	html_t html = html_new();	
+	html_fc_t err = html_h1_new(errt);
+	html_fc_t desc = html_p_new("Hey! Don't do that.");
+	html_body_add(&html.body, &err);
+	html_body_add(&html.body, &desc);
+	char* msg = html_render(&html);
+
     resp_add_content(&r, msg, strlen(msg));
     return r;
 }

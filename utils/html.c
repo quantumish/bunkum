@@ -1,42 +1,5 @@
+#include "html.h"
 #include "log.h"
-#include "shitvec.h"
-
-enum html_fc_type {
-	HTML_A,
-	HTML_P,
-	HTML_BR,
-	HTML_H1,
-};
-
-typedef struct html_fc {
-	enum html_fc_type type;
-	union {
-		char* text;
-		struct { char* href; char* content; } a;
-	} value;
-} html_fc_t;
-
-typedef struct title {
-	char* text;
-} html_title_t;
-
-typedef struct base {
-	char* href;
-	char* target;
-} html_base_t;
-
-typedef struct head {
-	shitvec_t meta;
-} html_head_t;
-
-typedef struct body {
-	shitvec_t content;
-} html_body_t;
-
-typedef struct html {
-	shitvec_t _buf;
-	html_body_t body;	
-} html_t;
 
 html_t html_new() {
 	html_t out;
@@ -54,8 +17,15 @@ html_fc_t html_p_new(char* content) {
 	return out;
 }
 
+html_fc_t html_h1_new(char* content) {
+	html_fc_t out;
+	out.type = HTML_H1;
+	out.value.text = content;
+	return out;
+}
+
 void html_body_add(html_body_t* body, html_fc_t* fc) {
-	shitvec_push(&body->content, &fc);
+	shitvec_push(&body->content, fc);
 }
 
 void c_sv_pushs(shitvec_t* sv, char* str) {
@@ -75,10 +45,18 @@ char* html_render(html_t* html) {
 			c_sv_pushs(&html->_buf, elem->value.text);
 			c_sv_pushs(&html->_buf, "</p>");
 			break;
+		case HTML_H1:
+			c_sv_pushs(&html->_buf, "<h1>");
+			c_sv_pushs(&html->_buf, elem->value.text);
+			c_sv_pushs(&html->_buf, "</h1>");
+			break;
 		default:
 			log_error("Didn't handle rendering HTML element!");
 		}		
 	}
 	c_sv_pushs(&html->_buf, "</body>");
 	c_sv_pushs(&html->_buf, "</html>");
+	shitvec_push(&html->_buf, "\0");
+
+	return html->_buf.arr;
 }
