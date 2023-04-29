@@ -46,10 +46,8 @@ response_t serve_error(enum StatusCode c) {
 	sprintf(errt, "Error %d", c);
 
 	html_t html = html_new();	
-	html_fc_t err = html_h1_new(errt);
-	html_fc_t desc = html_p_new("Hey! Don't do that.");
-	html_body_add(&html.body, &err);
-	html_body_add(&html.body, &desc);
+	html_body_add(&html.body, html_h1_new(errt));
+	html_body_add(&html.body, html_p_new("Hey! Don't do that."));
 	char* msg = html_render(&html);
 
     resp_add_content(&r, msg, strlen(msg));
@@ -144,13 +142,13 @@ response_t make_response (request_t* req, channel_t* chan) {
         return serve_error(BadRequest);                
     }
 
-	/* if (hashmap_get(&req->headers, "Profile") != 0x0) { */
-	/* 	int profile = true; */
-	/* 	channel_push(chan, &profile); */
-	/* 	ptrace(PTRACE_TRACEME, NULL); */
-	/* 	usleep(10000); */
-	/* } */
-	
+	if (hashmap_get(&req->headers, "Profile") != 0x0) {
+		int profile = true;
+		channel_push(chan, &profile);
+		ptrace(PTRACE_TRACEME, NULL);
+		/* usleep(10000); */
+	}
+ 	
     log_info("Got request %s %s", method_name(req->method), req->path);
 
     char* mapped_path = hashmap_get(&path_redirs, req->path);
@@ -252,7 +250,7 @@ int profile(pid_t tid) {
 	errno = 0;
 	if (ptrace(PTRACE_ATTACH, tid) < 0) {
 		log_error("ptrace() fail, errno %d", errno);
-	}
+	} 
 	void* ui = _UPT_create(tid);
 	if (!ui) return -1;
 	unw_cursor_t c;
@@ -311,7 +309,7 @@ int main() {
 
 	int* ns;
 	pid_t* tid;
-    while (true) {		
+    while (true) {
 		if ((ns = channel_try_recv(&listen_chan))) {
 			channel_t chan = channel_new(sizeof(pid_t));
 			shitvec_push(&channels, &chan);
@@ -323,11 +321,10 @@ int main() {
 		for (size_t i = 0; i < channels.vec_sz; i++) {
 		    struct thread_comm* comm = shitvec_get(&channels, i);
 			if ((tid = channel_try_recv(&comm->chan))) {
-				/* for (int j = 0; j < 10; j++) { */
-				/* 	profile(*tid); */
-				/* 	usleep(10); */
-				/* } */
-				/* } else comm->tid = *tid; */
+				for (int j = 0; j < 10; j++) {
+					profile(*tid);
+					usleep(10);
+				} /* else comm->tid = *tid; */
 			}
 		}			   
     }

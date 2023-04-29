@@ -4,6 +4,7 @@
 #include "shitvec.h"
 
 enum html_fc_type {
+	HTML_TEXT,
 	HTML_A,
 	HTML_P,
 	HTML_BR,
@@ -43,7 +44,7 @@ typedef struct html {
 html_t html_new();
 html_fc_t html_p_new(char* content);
 html_fc_t html_h1_new(char* content);
-void html_body_add(html_body_t* body, html_fc_t* fc);
+void html_body_add(html_body_t* body, html_fc_t fc);
 char* html_render(html_t* html);
 
 #endif

@@ -1,4 +1,4 @@
-CFLAGS?= -g
+CFLAGS?= -g -std=c99
 LIBS:=-lz -lpthread -lunwind -lunwind-ptrace -lunwind-generic
 CLIBS = $(wildcard utils/*.c) $(wildcard http/*.c)
 OBJ = $(wildcard build/*.o)

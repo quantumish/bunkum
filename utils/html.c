@@ -23,9 +23,9 @@ html_fc_t html_h1_new(char* content) {
 	out.value.text = content;
 	return out;
 }
-
-void html_body_add(html_body_t* body, html_fc_t* fc) {
-	shitvec_push(&body->content, fc);
+ 
+void html_body_add(html_body_t* body, html_fc_t fc) {
+	shitvec_push(&body->content, &fc);
 }
 
 void c_sv_pushs(shitvec_t* sv, char* str) {
@@ -40,6 +40,8 @@ char* html_render(html_t* html) {
 	for (int i = 0; i < html->body.content.vec_sz; i++) {
 		html_fc_t* elem = shitvec_get(&html->body.content, i);
 		switch (elem->type) {
+		case HTML_TEXT:
+			
 		case HTML_P:
 			c_sv_pushs(&html->_buf, "<p>");
 			c_sv_pushs(&html->_buf, elem->value.text);
