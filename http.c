@@ -17,6 +17,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/ptrace.h>
+#include <sys/wait.h>
+#include <sys/fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -120,7 +122,7 @@ response_t serve_file(request_t* req) {
 			}
 		}
     }
-    if (!ok) return serve_error(NotAcceptable);
+    /* if (!ok) return serve_error(NotAcceptable); */
 
     #ifndef __APPLE__
     char datebuf[64];
@@ -136,36 +138,40 @@ response_t serve_file(request_t* req) {
 // TODO actually respect requests
 // TODO list dirs
 
-response_t make_response (request_t* req, channel_t* chan) {
+response_t make_response (request_t* req, int pfd) {
     if (req_parse(req) < 0) {
         log_error("Failed to parse incoming request.");
         return serve_error(BadRequest);                
     }
 
 	if (hashmap_get(&req->headers, "Profile") != 0x0) {
+		log_debug("Got header");
 		int profile = true;
-		channel_push(chan, &profile);
-		ptrace(PTRACE_TRACEME, NULL);
-		/* usleep(10000); */
+		if (ptrace(PTRACE_TRACEME, NULL) < 0) {
+			log_error("PTRACE_TRACME failed with err %d", errno);
+		}
+		if (write(pfd, "profile", 8) != 8) {
+			log_error("write err");
+		}
+		usleep(100);
 	}
  	
     log_info("Got request %s %s", method_name(req->method), req->path);
 
-    char* mapped_path = hashmap_get(&path_redirs, req->path);
-    if (mapped_path != NULL) {
-        strcpy(req->path, mapped_path);
-    }
-    
+	char* mapped_path = hashmap_get(&path_redirs, req->path);
+	if (mapped_path != NULL) {
+		strcpy(req->path, mapped_path);
+	}
+		
     if (!shitvec_check(&paths, req->path, (sv_cmp_t)strcmp)) {
         return serve_error(NotFound);
     }
-    
+
+	log_debug("method = %d", req->method);
     switch (req->method) {
-    case GET: return serve_file(req); break;
+    case GET: return serve_file(req); 
     default: return serve_error(MethodNotAllowed);
-    }
-    
-    return serve_error(InternalServerError); // should be unreachable?
+    }      
 }
 
 double diff_timespec(const struct timespec *time1, const struct timespec *time0) {
@@ -173,23 +179,9 @@ double diff_timespec(const struct timespec *time1, const struct timespec *time0)
       + (time1->tv_nsec - time0->tv_nsec) / 1000000000.0;
 }
 
-struct handle_conn_ctxt {
-	int ns;
-	channel_t* chan;
-};
-
-void* handle_conn(void* ctxt) {
-    channel_t* chan = ((struct handle_conn_ctxt *)ctxt)->chan;
-	int ns = ((struct handle_conn_ctxt *)ctxt)->ns;
-
-	pid_t tid = gettid();
-	log_debug("my tid %d", tid);
-	channel_push(chan, &tid);
-	
+void* handle_conn(int ns, int pfd) {	
     char msgbuf[1024] = {0};
     while(true) {
-		tid = gettid();
-		log_debug("my tid %d", tid);
         struct timespec before, after, tdiff;
         if (recv(ns, msgbuf, 1024, 0) == 0) {
             log_info("Closing connection.");
@@ -199,11 +191,11 @@ void* handle_conn(void* ctxt) {
         if (msgbuf[0] != 0) {
             request_t req = req_new(msgbuf, 1024);
 			
-            response_t r = make_response(&req, chan);            
+            response_t r = make_response(&req, pfd);            
             send(ns, r.content, r.sz, 0);
             free(r.content);
-
-			clock_gettime(CLOCK_MONOTONIC, &after);            
+			write(pfd, "stop", 5);
+			clock_gettime(CLOCK_MONOTONIC, &after);			
             log_info("Handled request in %f sec", diff_timespec(&after, &before));
             req_free(&req);
         }
@@ -232,25 +224,28 @@ int list_files_sv(shitvec_t* sv, char* base) {
 
 channel_t listen_chan;
 
-void* listen_for_conns(void* ctxt) {
-	int s = *(int*)ctxt;
-	int namelen;
-    struct sockaddr_in client;
-	while (true) {
-        listen(s, 1);
-        int ns = accept(s, (struct sockaddr*)&client, (socklen_t*)&namelen);
-		log_info("Handling connection from %s", inet_ntoa(client.sin_addr));
-		channel_push(&listen_chan, &ns);  
-	}
-}
+/* void* listen_for_conns(void* ctxt) { */
+/* 	int s = *(int*)ctxt; */
+/* 	int namelen; */
+/*     struct sockaddr_in client; */
+/* 	while (true) { */
+/*         listen(s, 1); */
+/*         int ns = accept(s, (struct sockaddr*)&client, (socklen_t*)&namelen); */
+/* 		log_info("Handling connection from %s", inet_ntoa(client.sin_addr)); */
+/* 		channel_push(&listen_chan, &ns);   */
+/* 	} */
+/* } */
 
 #define MAX_SYMLEN 128
 
 int profile(pid_t tid) {
 	errno = 0;
+	log_debug("Tracing %d", tid);
 	if (ptrace(PTRACE_ATTACH, tid) < 0) {
 		log_error("ptrace() fail, errno %d", errno);
-	} 
+	}
+	kill(tid, SIGSTOP);
+	waitpid(tid, NULL, 0);
 	void* ui = _UPT_create(tid);
 	if (!ui) return -1;
 	unw_cursor_t c;
@@ -264,7 +259,10 @@ int profile(pid_t tid) {
 	} while(unw_step(&c) > 0);
 	_UPT_resume(as, &c, ui);
 	_UPT_destroy(ui);
-	ptrace(PTRACE_CONT, tid);
+    kill(tid, SIGSTOP);
+	printf("waiting\n");
+	waitpid(tid, NULL, 0);
+	ptrace(PTRACE_DETACH, tid, NULL, NULL);	
 	return 0;
 }
 
@@ -302,31 +300,38 @@ int main() {
     
 	listen_chan = channel_new(sizeof(int));	
 
-	pthread_t lthread;
-	pthread_create(&lthread, NULL, listen_for_conns, &s);
-	
-	shitvec_t channels = shitvec_new(sizeof(struct thread_comm));
+	/* pthread_t lthread; */
+	/* pthread_create(&lthread, NULL, listen_for_conns, &s); */
 
+	int namelen;
+    struct sockaddr_in client;
+	
 	int* ns;
-	pid_t* tid;
+	pid_t pid;
+
     while (true) {
-		if ((ns = channel_try_recv(&listen_chan))) {
-			channel_t chan = channel_new(sizeof(pid_t));
-			shitvec_push(&channels, &chan);
-			channel_t* chanp = shitvec_last(&channels);
-			struct handle_conn_ctxt ctxt = { .chan = chanp, .ns = *ns };
-			pthread_t thread;
-			pthread_create(&thread, NULL, handle_conn, &ctxt);
+		listen(s, 1);
+        int ns = accept(s, (struct sockaddr*)&client, (socklen_t*)&namelen);
+		log_info("Got connection");
+		
+		int pfds[2];
+		pipe(pfds);
+		
+		pid = fork();
+		if (pid == 0) {
+			handle_conn(ns, pfds[1]);
+			exit(0);
+		} else {
+			/* char msg[8] = {0}; */
+			/* read(pfds[0], &msg, 8); */
+			/* int retval = fcntl(pfds[0], F_SETFL, fcntl(pfds[0], F_GETFL) | O_NONBLOCK); */
+			
+			/* while(true) {				 */
+			/* 	profile(pid); */
+			/* 	usleep(10); */
+			/* 	if (read(pfds[0], &msg, 5) == 5 && strcmp(msg, "stop") == 0) break; */
+			/* } */
 		}
-		for (size_t i = 0; i < channels.vec_sz; i++) {
-		    struct thread_comm* comm = shitvec_get(&channels, i);
-			if ((tid = channel_try_recv(&comm->chan))) {
-				for (int j = 0; j < 10; j++) {
-					profile(*tid);
-					usleep(10);
-				} /* else comm->tid = *tid; */
-			}
-		}			   
     }
 }
 

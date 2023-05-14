@@ -1,8 +1,9 @@
 
 FROM ubuntu:latest
 RUN apt-get update
-# RUN apt-get install -y zlib1g
-# RUN apt-get install -y zlib1g-dev
+RUN apt-get install -y zlib1g
+RUN apt-get install -y libunwind-dev
+RUN apt-get install -y zlib1g-dev
 
 WORKDIR /root
 COPY public public
