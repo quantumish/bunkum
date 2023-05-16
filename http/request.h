@@ -15,11 +15,29 @@ enum http_method {
     TRACE,
 };
 const char* method_name(enum http_method m);
+enum http_method method_enum(char* p);
 
 #define MAX_PATH_LEN 128
 #define MAX_HEADER_NAME 32
 #define MAX_HEADER_VALUE 512
 #define MAX_MIMETYPE_LEN 32
+#define MAX_MIME_SUBTYPE_LEN 32
+
+enum mime_disctype {
+	MIME_APPLICATION,
+	MIME_AUDIO,
+	MIME_EXAMPLE,
+	MIME_FONT,
+	MIME_IMAGE,
+	MIME_MODEL,
+	MIME_TEXT,
+	MIME_VIDEO,
+};
+
+struct mime_type {
+	enum mime_disctype type;
+	char subtype[MAX_MIME_SUBTYPE_LEN];
+};
 
 struct req_mimetype {
     float q;

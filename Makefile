@@ -19,5 +19,9 @@ test: $(CLIBS) test.c
 	$(CC) test.c -o test -ldl
 	./test libbunkum.so
 
+static:
+	$(CC) $(CLIBS) testutils.c -shared -fPIC $(CFLAGS) -o bunkum.o $(LIBS) -DTEST
+	ar rvs bunkum.a bunkum.o
+
 clean:
 	rm serv

@@ -116,11 +116,9 @@ response_t serve_file(request_t* req) {
     }
     /* if (!ok) return serve_error(NotAcceptable); */
 
-#ifndef __APPLE__
     char datebuf[64];
     time_to_str(st.st_mtim.tv_sec, datebuf);
     resp_add_hdr(&r, "Last-Modified", datebuf);
-#endif
 
     resp_add_content(&r, buf, bufsize);
     free(buf);
@@ -136,8 +134,7 @@ response_t make_response (request_t* req, int pfd) {
         return serve_error(BadRequest);
     }
 
-    if (hashmap_get(&req->headers, "Profile") != 0x0) {
-        log_debug("Got header");
+    if (hashmap_get(&req->headers, "Profile") != 0x0) {       
         int profile = true;
         if (ptrace(PTRACE_TRACEME, NULL) < 0) {
             log_error("PTRACE_TRACME failed with err %d", errno);
@@ -165,6 +162,7 @@ response_t make_response (request_t* req, int pfd) {
     default: return serve_error(MethodNotAllowed);
     }
 }
+
 
 double diff_timespec(const struct timespec *time1, const struct timespec *time0) {
     return (time1->tv_sec - time0->tv_sec)
