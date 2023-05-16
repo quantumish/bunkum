@@ -1,5 +1,10 @@
 #include <string.h>
 #include <errno.h>
+#include <stdio.h>
+
+#include <sys/types.h>
+#include <signal.h>
+#include <unistd.h>
 
 #include <sys/ptrace.h>
 #include <sys/wait.h>
@@ -12,19 +17,10 @@
 #include "log.h"
 #include "profile.h"
 
-struct profile_node {
-	char symbol[MAX_SYMLEN];
-	unsigned int samples;
-	shitvec_t children;	
-};
-
 shitvec_t profile(pid_t tid) {
     shitvec_t stack = shitvec_new(MAX_SYMLEN);    
     errno = 0;
-    log_debug("Tracing %d", tid);
-    if (ptrace(PTRACE_ATTACH, tid) < 0) {
-        log_error("ptrace() fail, errno %d", errno);
-    }
+    ptrace(PTRACE_ATTACH, tid);
     kill(tid, SIGSTOP);
     waitpid(tid, NULL, 0);
     void* ui = _UPT_create(tid);
@@ -35,7 +31,6 @@ shitvec_t profile(pid_t tid) {
         unw_word_t offset;
         char fname[MAX_SYMLEN] = {0};
         int resp = unw_get_proc_name(&c, fname, sizeof(fname), &offset);
-        log_trace("%s (code %d, errno %d)", fname, resp, errno);
         shitvec_push(&stack, fname);
     } while(unw_step(&c) > 0);
     _UPT_resume(as, &c, ui);
@@ -56,8 +51,8 @@ struct profile_node profile_node_new(char* name) {
 	return out;
 }
 
-shitvec_t profile_res_new() {
-	return shitvec_new(sizeof(shitvec_t));
+struct profile_node profile_res_new() {
+	return profile_node_new("");
 }
 
 int cmp_prof_node(void* _a, void* _b) {
@@ -66,27 +61,29 @@ int cmp_prof_node(void* _a, void* _b) {
 	return strcmp(a->symbol, b->symbol);	
 }
 
-void profile_proc_stack(shitvec_t* prof_res, shitvec_t* stack) {
-	if (stack->vec_sz == 0) return;
-	// NOTE maybe just have a fake root node (would make this base case not needed)
-	int index = shitvec_check(prof_res, shitvec_get(stack, 0), cmp_prof_node);
-	if (index == -1) {
-		struct profile_node new = profile_node_new(shitvec_get(stack, 0));
-		shitvec_push(prof_res, &new);
-		index = prof_res->vec_sz - 1;
-	}
-	struct profile_node* node = shitvec_get(prof_res, index);
-	node->samples += 1;
-
-	for (int i = 0; i < stack->vec_sz; i++) {
+void profile_proc_stack(struct profile_node* prof_res, shitvec_t* stack) {
+	if (stack->vec_sz == 0) return;	
+	struct profile_node* node = prof_res;
+	for (int i = stack->vec_sz-1; i > 0; i--) {
 		char* sym = shitvec_get(stack, i);
 		int index = shitvec_check(&node->children, sym, cmp_prof_node);
 		if (index == -1) {
 			struct profile_node new = profile_node_new(sym);
-			shitvec_push(prof_res, &new);
-			index = prof_res->vec_sz - 1;
+			shitvec_push(&node->children, &new);
+			index = node->children.vec_sz - 1;
 		}
 	    node = shitvec_get(&node->children, index);
 		node->samples += 1;
+	}
+}
+
+void profile_dump(struct profile_node* prof_res, int indent) {
+	struct profile_node* node = prof_res;
+	if (indent >= 0) {
+		for (int i = 0; i < indent; i++) printf("  ");
+		printf("%s (%d) \n", node->symbol, node->samples);
+	}
+	for (int i = 0; i < node->children.vec_sz; i++) {
+		profile_dump(shitvec_get(&node->children, i), indent+1);
 	}
 }

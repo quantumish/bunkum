@@ -16,7 +16,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/ptrace.h>
-#include <sys/wait.h>
 #include <sys/fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -27,6 +26,7 @@
 #include "utils/sync.h"
 #include "utils/html.h"
 #include "utils/compress.h"
+#include "utils/profile.h"
 
 #include "http/response.h"
 #include "http/request.h"
@@ -289,12 +289,14 @@ int main() {
             struct conn_ctxt* ctxt = shitvec_get(&conns, i);
             char msg[8] = {0};
             if (read(ctxt->fd, &msg, 8) != 8 || strcmp(msg, "profile") != 0) continue;
-            shitvec_t nodes = shitvec_new(sizeof(struct tree_node));
+            struct profile_node prof_res = profile_res_new();
             while(true) {
-                 profile(ctxt->pid);
-                 usleep(10);
-                 if (read(ctxt->fd, &msg, 5) == 5 && strcmp(msg, "stop") == 0) break;
+                shitvec_t stack = profile(ctxt->pid);
+                profile_proc_stack(&prof_res, &stack);                
+                usleep(3);
+                if (read(ctxt->fd, &msg, 5) == 5 && strcmp(msg, "stop") == 0) break;
             }
+            profile_dump(&prof_res, -1);
         }
     }
 }
