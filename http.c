@@ -21,10 +21,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include <pthread.h>
-#include <libunwind.h>
-#include <libunwind-ptrace.h>
-
 #include "utils/log.h"
 #include "utils/time.h"
 #include "utils/shitvec.h"
@@ -159,7 +155,7 @@ response_t make_response (request_t* req, int pfd) {
         strcpy(req->path, mapped_path);
     }
 
-    if (!shitvec_check(&paths, req->path, (sv_cmp_t)strcmp)) {
+    if (shitvec_check(&paths, req->path, (sv_cmp_t)strcmp) == -1) {
         return serve_error(NotFound);
     }
 
@@ -232,43 +228,6 @@ void* listen_for_conns(void* ctxt) {
     }
 }
 
-#define MAX_SYMLEN 32
-
-shitvec_t profile(pid_t tid) {
-    shitvec_t stack = shitvec_new(MAX_SYMLEN);    
-    errno = 0;
-    log_debug("Tracing %d", tid);
-    if (ptrace(PTRACE_ATTACH, tid) < 0) {
-        log_error("ptrace() fail, errno %d", errno);
-    }
-    kill(tid, SIGSTOP);
-    waitpid(tid, NULL, 0);
-    void* ui = _UPT_create(tid);
-    if (!ui) return -1;
-    unw_cursor_t c;
-    unw_addr_space_t as = unw_create_addr_space(&_UPT_accessors, 0);
-    unw_init_remote(&c, as, ui);
-    do {
-        unw_word_t offset;
-        char fname[MAX_SYMLEN] = {0};
-        int resp = unw_get_proc_name(&c, fname, sizeof(fname), &offset);
-        log_trace("%s (code %d, errno %d)", fname, resp, errno);
-        shitvec_push(&stack, fname);
-    } while(unw_step(&c) > 0);
-    _UPT_resume(as, &c, ui);
-    _UPT_destroy(ui);
-    kill(tid, SIGSTOP);
-    waitpid(tid, NULL, 0);
-    ptrace(PTRACE_DETACH, tid, NULL, NULL);
-    return stack;
-}
-
-struct tree_node {
-    struct tree_node* left;
-    struct tree_node* right;
-    char name[MAX_SYMLEN];
-};
-
 struct conn_ctxt {
     pid_t pid;
     int fd;
@@ -339,7 +298,6 @@ int main() {
         }
     }
 }
-
 
 // meta todos:
 // - TODO true dependencyless (no zlib, no pthread)

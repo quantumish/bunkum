@@ -20,7 +20,7 @@ void* shitvec_get(shitvec_t* sv, size_t index);
 void* shitvec_last(shitvec_t* sv);
 void shitvec_push(shitvec_t* sv, void* item);
 void shitvec_subpush(shitvec_t* sv, void* item, size_t sz);
-bool shitvec_check(shitvec_t* sv, void* item, sv_cmp_t cmp);
+int shitvec_check(shitvec_t* sv, void* item, sv_cmp_t cmp);
 void shitvec_sort(shitvec_t* sv, int(*cmp)(const void*, const void*));
 void shitvec_free(shitvec_t* sv);
 

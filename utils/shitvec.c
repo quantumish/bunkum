@@ -41,13 +41,13 @@ void shitvec_subpush(shitvec_t* sv, void* item, size_t sz) {
     memcpy(sv->arr+(sv->vec_sz * sv->e_sz), item, sz);
 }
 
-bool shitvec_check(shitvec_t* sv, void* item, sv_cmp_t cmp) {
+int shitvec_check(shitvec_t* sv, void* item, sv_cmp_t cmp) {
     for (size_t i = 0; i < sv->vec_sz; i++) {
         if (cmp(sv->arr+(i*sv->e_sz), item) == 0) {
-            return true;
+            return i;
         } 
     }
-    return false;    
+    return -1;
 }
 
 void shitvec_sort(shitvec_t* sv, int(*cmp)(const void*, const void*)) {
