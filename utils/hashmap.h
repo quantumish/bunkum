@@ -17,6 +17,8 @@ typedef struct hashmap_t {
 // Generates a new hashmap_t.
 hashmap_t hashmap_new(size_t ksize, size_t vsize);
 
+#define hashmap_init(t1, t2) hashmap_new(sizeof(t1), sizeof(t2))
+
 // Sets a key-value pair in the hashmap_t passed to it. Returns 0x0 for success, 0x1 for failure.
 int hashmap_set(hashmap_t* h, void* k, void* v);
 

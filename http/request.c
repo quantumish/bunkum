@@ -17,6 +17,24 @@ enum http_method method_enum(char* p) {
     return method_codes[((*(uint64_t*)p*0x1b8b6e6d) % 0x100000000) >> 28];
 }
 
+
+/* enum parse_qvals_err { */
+/* 	PARSE_QVALS_SUCCESS, */
+/* 	PARSE_QVALS_MALFORMED,	 */
+/* }; */
+
+/* struct parse_qvals_res { */
+/* 	enum parse_qval_err err; */
+/* 	union { */
+/* 		shitvec_t items; */
+		
+/* 	} data; */
+/* }; */
+
+/* shitvec_t parse_qvalues(char* str) { */
+	
+/* } */
+
 // Be careful about passing by value! if the internal hashmap resizes
 // a req_free() call on the original (the one copied *from*) will be a
 // double free() error
@@ -47,7 +65,9 @@ shitvec_t hdr_parse_accept(char* val) {
         next = strtok(NULL, ",");
         float q = 1;
         char* qptr = NULL;
-        if (next != NULL && (qptr = (char*)memchr(start, ';', next-start))) {
+
+		char* end = next != NULL ? next : start+strlen(start);				
+        if ((qptr = (char*)memchr(start, ';', end-start))) {
             sscanf(qptr, ";q=%f", &q);
         }
         struct req_mimetype mtype;
@@ -62,6 +82,14 @@ shitvec_t hdr_parse_accept(char* val) {
     return mimetypes;
 }
 
+struct mime_type parse_mimetype(char* str) {
+	char* slash = strchr(str, '/');
+	// if (slash == NULL) handle_error();
+	char* subtype = slash + 1;
+}
+
+
+
 int req_parse(request_t* req) {
     char method[8] = {0};
     int matched = sscanf(req->buf, "%s %s HTTP/%f\r\n", (char*)method, (char*)req->path, &req->ver);
@@ -74,7 +102,8 @@ int req_parse(request_t* req) {
 		char name[MAX_HEADER_NAME] = {0};
 		char value[MAX_HEADER_VALUE] = {0};
         int matched = sscanf(start, "%32[^:]: %s", name, value);
-        if (matched == 0) return 0; // No more headers;
+		// printf("%d matched. %s: %s\n", matched, name, value);
+        if (matched == 0) return 0; // No more headers;		
         else if (matched == 1) {
             if (name[0] == '\r') return 0; // TODO sketch
             return -1; // Uhh... half a header. NOTE doesn't even seem to work. fun.
@@ -132,5 +161,20 @@ void test_hdr_parse_accept() {
     assert_str_eq("*/*", mtype->item);
     assert_float_eq(0.8, mtype->q);
 }
+
+void test_bad_req_total_garbage() {
+	request_t r = req_new("this is not a request.", 23);
+	assert_int_eq(-1, req_parse(&r));
+}
+
+/* void test_bad_req_half_header() { */
+/* 	char bigbuf[1024] = "GET / HTTP/1.1\r\nProfile:\n";	 */
+/* 	request_t r = req_new(bigbuf, 1024); */
+/* 	assert_int_eq(-1, req_parse(&r)); */
+
+/* 	bzero(bigbuf, 1024); */
+/* 	bigbuf = "GET / HTTP/1.1\r\nProfile: */
+/* } */
+
 
 #endif

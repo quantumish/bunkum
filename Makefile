@@ -8,7 +8,7 @@ OBJ = $(wildcard build/*.o)
 all: serv
 
 serv: $(CLIBS) http.c
-	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+	$(CC) -o $@ $^ $(CFLAGS) $(LIBS) -O3
 
 run: serv
 	sudo docker build -t bunkum-dev .

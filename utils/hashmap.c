@@ -44,19 +44,19 @@ hashmap_t hashmap_new(size_t ksize, size_t vsize) {
     h.k_sz = ksize;
     h.v_sz = vsize;
     h.len = HASHMAP_INIT_SIZE;
-	h.vark = false;
+    h.vark = false;
     h.filled = 0; // Store # of filled keys for load factor calculation
     return h;
 }
 
 int hashmap_kcmp(hashmap_t* h, void* a, void* b) {
-	if (h->vark) return strcmp(a, b);
-	return memcmp(a, b, h->k_sz);
+    if (h->vark) return strcmp(a, b);
+    return memcmp(a, b, h->k_sz);
 }
 
 void* hashmap_kcpy(hashmap_t* h, void* a, void* b) {
-	if (h->vark) return strcpy(a, b);
-	return memcpy(a, b, h->k_sz);
+    if (h->vark) return strcpy(a, b);
+    return memcpy(a, b, h->k_sz);
 }
 
 void hashmap_resize(hashmap_t* h) {
@@ -142,7 +142,7 @@ int hashmap_del(hashmap_t* h, void* k) {
     int looped_once = 0;
     for (size_t off = index; off < h->len; off+=1) {
         if (hashmap_kcmp(h, h->keys + (off * h->k_sz), k) == 0) {
-            memset(h->keys + (off * h->v_sz), 0, h->k_sz);
+	    memset(h->keys + (off * h->k_sz), 0, h->k_sz);
             // No reason to delete value, will just be overwritten next time.
             return 0;
         }
@@ -164,15 +164,23 @@ void hashmap_free(hashmap_t* h) {
 #include "../test.h"
 
 void test_hashmap_sanity() {
-	hashmap_t h = hashmap_new(16, 64);
-	hashmap_set(&h, "whoo", "This is a test.");
-	hashmap_set(&h, "Accept", "image/png,text/plain;q=0.5,image/jpeg");
-	hashmap_resize(&h); // make sure it doesn't explode
-	hashmap_set(&h, "Blah blah", "This is (another) test.");
-	assert_str_eq(hashmap_get(&h, "whoo"), "This is a test.");
-	assert_str_eq(hashmap_get(&h, "Accept"), "image/png,text/plain;q=0.5,image/jpeg");
-	assert_str_eq(hashmap_get(&h, "Blah blah"), "This is (another) test.");
-	hashmap_free(&h);
+    hashmap_t h = hashmap_new(16, 64);
+    hashmap_set(&h, "whoo", "This is a test.");
+    hashmap_set(&h, "Accept", "image/png,text/plain;q=0.5,image/jpeg");
+    hashmap_resize(&h); // make sure it doesn't explode
+    hashmap_set(&h, "Blah blah", "This is (another) test.");
+    assert_str_eq(hashmap_get(&h, "whoo"), "This is a test.");
+    assert_str_eq(hashmap_get(&h, "Accept"), "image/png,text/plain;q=0.5,image/jpeg");
+    assert_str_eq(hashmap_get(&h, "Blah blah"), "This is (another) test.");
+    hashmap_free(&h);
+}
+
+void test_hashmap_del() {
+    hashmap_t h = hashmap_new(16, 64);
+    assert_int_eq(hashmap_del(&h, "abc"), 1);
+    assert_int_eq(hashmap_set(&h, "abc", "whoo"), 0);    
+    assert_int_eq(hashmap_del(&h, "abc"), 0);
+    assert_int_eq((long)hashmap_get(&h, "abc"), 0);
 }
 
 #endif
