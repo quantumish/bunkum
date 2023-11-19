@@ -19,8 +19,8 @@
 #include "log.h"
 #include "profile.h"
 
-shitvec_t profile(pid_t tid) {
-    shitvec_t stack = shitvec_new(MAX_SYMLEN);    
+vec_t profile(pid_t tid) {
+    vec_t stack = vec_new(MAX_SYMLEN);    
     errno = 0;
     ptrace(PTRACE_ATTACH, tid);
     kill(tid, SIGSTOP);
@@ -33,7 +33,7 @@ shitvec_t profile(pid_t tid) {
         unw_word_t offset;
         char fname[MAX_SYMLEN] = {0};
         int resp = unw_get_proc_name(&c, fname, sizeof(fname), &offset);
-        shitvec_push(&stack, fname);
+        vec_push(&stack, fname);
     } while(unw_step(&c) > 0);
     _UPT_resume(as, &c, ui);
     _UPT_destroy(ui);
@@ -45,7 +45,7 @@ shitvec_t profile(pid_t tid) {
 
 struct profile_node profile_node_new(char* name) {
 	struct profile_node out = {
-		.children = shitvec_new(sizeof(struct profile_node)),
+		.children = vec_new(sizeof(struct profile_node)),
 		.samples = 0,
 		.symbol = {0}
 	};
@@ -63,18 +63,18 @@ int cmp_prof_node(void* _a, void* _b) {
 	return strcmp(a->symbol, b->symbol);	
 }
 
-void profile_proc_stack(struct profile_node* prof_res, shitvec_t* stack) {
+void profile_proc_stack(struct profile_node* prof_res, vec_t* stack) {
 	if (stack->vec_sz == 0) return;	
 	struct profile_node* node = prof_res;
 	for (int i = stack->vec_sz-1; i > 0; i--) {
-		char* sym = shitvec_get(stack, i);
-		int index = shitvec_check(&node->children, sym, cmp_prof_node);
+		char* sym = vec_get(stack, i);
+		int index = vec_check(&node->children, sym, cmp_prof_node);
 		if (index == -1) {
 			struct profile_node new = profile_node_new(sym);
-			shitvec_push(&node->children, &new);
+			vec_push(&node->children, &new);
 			index = node->children.vec_sz - 1;
 		}
-	    node = shitvec_get(&node->children, index);
+	    node = vec_get(&node->children, index);
 		node->samples += 1;
 	}
 }
@@ -86,6 +86,6 @@ void profile_dump(struct profile_node* prof_res, int indent) {
 		printf("%s (%d) \n", node->symbol, node->samples);
 	}
 	for (int i = 0; i < node->children.vec_sz; i++) {
-		profile_dump(shitvec_get(&node->children, i), indent+1);
+		profile_dump(vec_get(&node->children, i), indent+1);
 	}
 }

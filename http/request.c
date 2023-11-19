@@ -26,12 +26,12 @@ enum http_method method_enum(char* p) {
 /* struct parse_qvals_res { */
 /* 	enum parse_qval_err err; */
 /* 	union { */
-/* 		shitvec_t items; */
+/* 		vec_t items; */
 		
 /* 	} data; */
 /* }; */
 
-/* shitvec_t parse_qvalues(char* str) { */
+/* vec_t parse_qvalues(char* str) { */
 	
 /* } */
 
@@ -57,8 +57,8 @@ int cmp_r_mimetype(const void* a, const void* b) {
 }
 
 // TODO handle parse errors
-shitvec_t hdr_parse_accept(char* val) {
-    shitvec_t mimetypes = shitvec_new(sizeof(struct req_mimetype));
+vec_t hdr_parse_accept(char* val) {
+    vec_t mimetypes = vec_new(sizeof(struct req_mimetype));
     char* start = strtok(val, ",");
     char* next;
     do {
@@ -76,9 +76,9 @@ shitvec_t hdr_parse_accept(char* val) {
         if (qptr != NULL) strncpy(mtype.item, start, qptr-start);
         else if (next != NULL) strncpy(mtype.item, start, next-start);
         else strcpy(mtype.item, start);
-        shitvec_push(&mimetypes, &mtype);
+        vec_push(&mimetypes, &mtype);
     } while ((start = next));
-    shitvec_sort(&mimetypes, cmp_r_mimetype);
+    vec_sort(&mimetypes, cmp_r_mimetype);
     return mimetypes;
 }
 
@@ -142,22 +142,22 @@ void test_method_str_to_enum() {
 
 void test_hdr_parse_accept() {
     char hdr[MAX_HEADER_VALUE] = "text/html,application/xml;q=0.9,image/webp,*/*;q=0.8";
-    shitvec_t mtypes = hdr_parse_accept(hdr);
+    vec_t mtypes = hdr_parse_accept(hdr);
     assert_size_eq(mtypes.vec_sz, 4);
 
-    struct req_mimetype* mtype = shitvec_get(&mtypes, 0);
+    struct req_mimetype* mtype = vec_get(&mtypes, 0);
     assert_str_eq("text/html", mtype->item);
     assert_float_eq(1.0, mtype->q);
 
-    mtype = shitvec_get(&mtypes, 1);
+    mtype = vec_get(&mtypes, 1);
     assert_str_eq("image/webp", mtype->item);
     assert_float_eq(1.0, mtype->q);
 
-    mtype = shitvec_get(&mtypes, 2);
+    mtype = vec_get(&mtypes, 2);
     assert_str_eq("application/xml", mtype->item);
     assert_float_eq(0.9, mtype->q);
 
-    mtype = shitvec_get(&mtypes, 3);
+    mtype = vec_get(&mtypes, 3);
     assert_str_eq("*/*", mtype->item);
     assert_float_eq(0.8, mtype->q);
 }

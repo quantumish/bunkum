@@ -1,7 +1,7 @@
 #ifndef HTML_H
 #define HTML_H
 
-#include "shitvec.h"
+#include "vec.h"
 
 enum html_fc_type {
 	HTML_TEXT,
@@ -29,15 +29,15 @@ typedef struct base {
 } html_base_t;
 
 typedef struct head {
-	shitvec_t meta;
+	vec_t meta;
 } html_head_t;
 
 typedef struct body {
-	shitvec_t content;
+	vec_t content;
 } html_body_t;
 
 typedef struct html {
-	shitvec_t _buf;
+	vec_t _buf;
 	html_body_t body;	
 } html_t;
 

@@ -1,7 +1,7 @@
 #ifndef REQUEST_H
 #define REQUEST_H
 
-#include "../utils/shitvec.h"
+#include "../utils/vec.h"
 #include "../utils/hashmap.h"
 
 enum http_method {
@@ -49,7 +49,7 @@ struct req_mimetype {
 /*     char value[MAX_HEADER_VALUE]; */
 /* } header_line_t; */
 
-shitvec_t hdr_parse_accept(char* val);
+vec_t hdr_parse_accept(char* val);
 
 typedef struct request {
     char* buf;

@@ -22,7 +22,7 @@
 
 #include "utils/log.h"
 #include "utils/time.h"
-#include "utils/shitvec.h"
+#include "utils/vec.h"
 #include "utils/sync.h"
 #include "utils/html.h"
 #include "utils/compress.h"
@@ -48,7 +48,7 @@ response_t serve_error(enum StatusCode c) {
     return r;
 }
 
-shitvec_t paths;
+vec_t paths;
 hashmap_t path_redirs;
 
 char* get_file_ext(char* filename) {
@@ -79,9 +79,9 @@ response_t serve_file(request_t* req) {
     char* hdr;
     if ((hdr = hashmap_get(&req->headers, "Accept"))) {
         ok = false;
-        shitvec_t mtypes = hdr_parse_accept(hdr);
+        vec_t mtypes = hdr_parse_accept(hdr);
         for (int j = 0; j < mtypes.vec_sz; j++) {
-            struct req_mimetype* a_mtype = shitvec_get(&mtypes, j);
+            struct req_mimetype* a_mtype = vec_get(&mtypes, j);
             // TODO doesn't handle stuff like image/* (is that even allowed?)
             if (strcmp(a_mtype->item, mtype) == 0 || strcmp(a_mtype->item, "*/*") == 0) {
                 ok = true;
@@ -95,9 +95,9 @@ response_t serve_file(request_t* req) {
 
     if (ok && (hdr = hashmap_get(&req->headers, "Accept-Encoding"))) {
         ok = false;
-        shitvec_t mtypes = hdr_parse_accept(hdr); // abuse of this func
+        vec_t mtypes = hdr_parse_accept(hdr); // abuse of this func
         for (int j = 0; j < mtypes.vec_sz; j++) {
-            struct req_mimetype* a_mtype = shitvec_get(&mtypes, j);
+            struct req_mimetype* a_mtype = vec_get(&mtypes, j);
             if (strcmp(a_mtype->item, "gzip") == 0) {
                 resp_add_hdr(&r, "Content-Encoding", "gzip");
                 buf = gzip_compress(buf, &bufsize);
@@ -152,7 +152,7 @@ response_t make_response (request_t* req, int pfd) {
         strcpy(req->path, mapped_path);
     }
 
-    if (shitvec_check(&paths, req->path, (sv_cmp_t)strcmp) == -1) {
+    if (vec_check(&paths, req->path, (sv_cmp_t)strcmp) == -1) {
         return serve_error(NotFound);
     }
 
@@ -192,7 +192,7 @@ void* handle_conn(int ns, int pfd) {
     }
 }
 
-int list_files_sv(shitvec_t* sv, char* base) {
+int list_files_sv(vec_t* sv, char* base) {
     char path[MAX_PATH_LEN] = "/";
     struct dirent* dp;
     DIR* dir = opendir(base);
@@ -203,7 +203,7 @@ int list_files_sv(shitvec_t* sv, char* base) {
             strcpy(path+1, base);
             strcat(path, "/");
             strcat(path, dp->d_name);
-            shitvec_push(sv, strchr(path+1, '/'));
+            vec_push(sv, strchr(path+1, '/'));
             list_files_sv(sv, path+1);
         }
     }
@@ -247,7 +247,7 @@ int main() {
         name.sin_port = htons(portnum);
     }
 
-    paths = shitvec_new(MAX_PATH_LEN);
+    paths = vec_new(MAX_PATH_LEN);
     path_redirs = hashmap_new(MAX_PATH_LEN, MAX_PATH_LEN);
     path_redirs.vark = true;
     hashmap_set(&path_redirs, "/", "/index.html");
@@ -266,7 +266,7 @@ int main() {
     int namelen;
     struct sockaddr_in client;
 
-    shitvec_t conns = shitvec_new(sizeof(struct conn_ctxt));
+    vec_t conns = vec_new(sizeof(struct conn_ctxt));
     while (true) {
         int* ptr = channel_try_recv(&listen_chan);
         if (ptr != NULL) {
@@ -281,15 +281,15 @@ int main() {
                 exit(0);
             }
             struct conn_ctxt ctxt = {.fd = pfds[0], .pid = pid };
-            shitvec_push(&conns, &ctxt);            
+            vec_push(&conns, &ctxt);            
         }
         for (int i = 0; i < conns.vec_sz; i++) {
-            struct conn_ctxt* ctxt = shitvec_get(&conns, i);
+            struct conn_ctxt* ctxt = vec_get(&conns, i);
             char msg[8] = {0};
             if (read(ctxt->fd, &msg, 8) != 8 || strcmp(msg, "profile") != 0) continue;
             struct profile_node prof_res = profile_res_new();
             while(true) {
-                shitvec_t stack = profile(ctxt->pid);
+                vec_t stack = profile(ctxt->pid);
                 profile_proc_stack(&prof_res, &stack);                
                 usleep(3);
                 if (read(ctxt->fd, &msg, 5) == 5 && strcmp(msg, "stop") == 0) break;

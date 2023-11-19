@@ -2,11 +2,11 @@
 #define UTIL_SYNC_H
 
 #include <pthread.h>
-#include "shitvec.h"
+#include "vec.h"
 
 typedef struct channel {
     pthread_mutex_t mutex;
-    shitvec_t queue;
+    vec_t queue;
     size_t msg_sz;
     size_t sz;
 } channel_t;
